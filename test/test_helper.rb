@@ -13,3 +13,10 @@ module ActiveSupport
     # Add more helper methods to be used by all tests here...
   end
 end
+
+class ActionDispatch::IntegrationTest
+  # Default auth header for API requests; pass a different id per call as needed.
+  def headers(user_id = "u1")
+    { "X-User-Id" => user_id }
+  end
+end
