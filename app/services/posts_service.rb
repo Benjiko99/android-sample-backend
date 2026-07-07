@@ -4,7 +4,7 @@ module PostsService
 
   # GET /posts/:id — full post with embedded author.
   def get_by_id(id, viewer_id)
-    post = Post.includes(:author, :video, album: :photos).find_by(id: id)
+    post = Post.includes(:video, album: :photos, author: { avatar_attachment: :blob }).find_by(id: id)
     raise ApiError::NotFound, "Post '#{id}' was not found" if post.nil?
 
     liked = ViewerFlags.liked_post_ids(viewer_id, [post.id])

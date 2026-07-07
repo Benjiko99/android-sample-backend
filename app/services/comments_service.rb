@@ -4,7 +4,7 @@ module CommentsService
 
   # GET /posts/:id/comments — keyset-paginated, newest first.
   def list(post_id, viewer_id, cursor_token:, limit_param:)
-    relation = Comment.includes(:author).where(post_id: post_id)
+    relation = Comment.includes(author: { avatar_attachment: :blob }).where(post_id: post_id)
     page = Cursor.paginate(relation, cursor_token:, limit_param:)
 
     ids = page.items.map(&:id)

@@ -13,10 +13,11 @@ module Api
 
     private
 
-    # Only these fields are editable. Keys absent from the body are left
-    # untouched; explicit nulls clear the (nullable) field.
+    # Only these fields are editable. Text keys absent from the body are left
+    # untouched; explicit nulls (or blanks, for a multipart request) clear the
+    # nullable ones. :avatar is an uploaded image file, applied only when present.
     def profile_params
-      params.permit(:nickname, :age, :gender, :bio, :avatarUrl).to_h
+      params.permit(:nickname, :age, :gender, :bio, :avatar).to_h
     end
   end
 end

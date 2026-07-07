@@ -1,6 +1,11 @@
 # Mirrors user.service.ts. handle, location, and counters are not editable.
 module UsersService
-  EDITABLE_KEYS = %w[nickname age gender bio avatarUrl].freeze
+  # Editable text fields. The avatar is an uploaded file, handled separately.
+  EDITABLE_KEYS = %w[nickname age gender bio].freeze
+
+  # Text fields that clear to null when an empty value is sent. nickname is
+  # required, so a blank nickname stays blank and fails validation.
+  NULLABLE_KEYS = %w[age gender bio].freeze
 
   module_function
 
@@ -11,8 +16,10 @@ module UsersService
     UserSerializer.full(user)
   end
 
-  # attrs: the raw permitted body hash (camelCase keys). Only keys actually
-  # present are applied — absent keys are left untouched, explicit nulls clear.
+  # attrs: the raw permitted body hash. Only text keys actually present are
+  # applied — absent keys are left untouched. An explicit null (JSON) or blank
+  # value (multipart) clears a nullable field. A present :avatar file replaces
+  # the stored avatar; its absence leaves the current one in place.
   def update_profile(id, current_user_id, attrs)
     raise ApiError::Forbidden, "You can only edit your own profile" if id != current_user_id
 
@@ -24,10 +31,41 @@ module UsersService
 
       value = attrs[key]
       value = value.strip if value.is_a?(String) # mirror zod .trim()
-      user[key.underscore] = value
+      value = nil if value == "" && NULLABLE_KEYS.include?(key)
+      user[key] = value
     end
+
+    attach_avatar(user, attrs["avatar"]) if attrs["avatar"].present?
 
     user.save!
     UserSerializer.full(user)
+  end
+
+  # Validates the uploaded image before attaching. We check here rather than via a
+  # model validation because attaching to an already-persisted, otherwise-unchanged
+  # record saves the attachment immediately — a later save! validation would fire
+  # too late to prevent it. Content type is sniffed from the bytes (Marcel), not
+  # trusted from the client-declared type.
+  def attach_avatar(user, file)
+    content_type = Marcel::MimeType.for(
+      file.tempfile, name: file.original_filename, declared_type: file.content_type
+    )
+
+    unless User::AVATAR_CONTENT_TYPES.include?(content_type)
+      raise_avatar_error("Avatar must be a JPEG, PNG, WebP, HEIC, or GIF image", "invalid_content_type")
+    end
+
+    if file.size > User::AVATAR_MAX_BYTES
+      max_mb = User::AVATAR_MAX_BYTES / 1.megabyte
+      raise_avatar_error("Avatar must be at most #{max_mb} MB", "too_large")
+    end
+
+    user.avatar.attach(file)
+  end
+
+  def raise_avatar_error(message, code)
+    raise ApiError::Validation.new("Validation failed", details: [
+      { "path" => "avatar", "code" => code, "message" => message }
+    ])
   end
 end

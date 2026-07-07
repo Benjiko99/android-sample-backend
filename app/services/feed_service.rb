@@ -19,7 +19,7 @@ module FeedService
     return nil unless include == "author"
 
     author_ids = page.items.map { |item| item["authorId"] }.uniq
-    users = author_ids.empty? ? [] : User.where(id: author_ids)
+    users = author_ids.empty? ? [] : User.where(id: author_ids).with_attached_avatar
     { "users" => users.map { |u| UserSerializer.minimal(u) } }
   end
 end

@@ -47,9 +47,25 @@ class Api::UsersTest < ActionDispatch::IntegrationTest
     assert_includes paths, "gender"
   end
 
-  test "PATCH rejects a non-URL avatar" do
-    patch "/api/users/u1", params: { avatarUrl: "not a url" }, as: :json, headers: headers
+  test "PATCH uploads an avatar file and returns an absolute avatarUrl" do
+    assert_not User.find("u1").avatar.attached?, "avatar should start unattached"
+
+    patch "/api/users/u1",
+          params: { nickname: "Ada", avatar: fixture_file_upload("avatar.png", "image/png") },
+          headers: headers
+    assert_response :ok
+
+    assert User.find("u1").avatar.attached?
+    avatar_url = response.parsed_body["data"]["avatarUrl"]
+    assert_match %r{\Ahttp://example\.com/.*active_storage}, avatar_url
+  end
+
+  test "PATCH rejects an avatar that is not a supported image" do
+    patch "/api/users/u1",
+          params: { avatar: fixture_file_upload("not_an_image.txt", "text/plain") },
+          headers: headers
     assert_response :unprocessable_entity
-    assert_equal "avatarUrl", response.parsed_body["error"]["details"].first["path"]
+    assert_equal "avatar", response.parsed_body["error"]["details"].first["path"]
+    assert_not User.find("u1").avatar.attached?
   end
 end

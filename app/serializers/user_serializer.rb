@@ -11,7 +11,7 @@ module UserSerializer
       "gender" => user.gender,
       "location" => user.location,
       "bio" => user.bio,
-      "avatarUrl" => user.avatar_url,
+      "avatarUrl" => avatar_url(user),
       "followerCount" => user.follower_count,
       "followingCount" => user.following_count
     }
@@ -22,7 +22,17 @@ module UserSerializer
       "id" => user.id,
       "handle" => user.handle,
       "nickname" => user.nickname,
-      "avatarUrl" => user.avatar_url
+      "avatarUrl" => avatar_url(user)
     }
+  end
+
+  # Absolute, proxied URL to the stored avatar, or nil when the user has none.
+  # Proxying streams the bytes straight through the app (vs. a redirect), which
+  # image loaders like the Android client's Coil handle without a second hop. The
+  # host comes from the environment's configured default_url_options.
+  def avatar_url(user)
+    return nil unless user.avatar.attached?
+
+    Rails.application.routes.url_helpers.rails_storage_proxy_url(user.avatar)
   end
 end
