@@ -2,30 +2,29 @@
 service: mosaic
 
 # Name of the container image.
-image: your-user/mosaic
+image: benjiko99/mosaic
 
 # Deploy to these servers.
 servers:
   web:
-    - 192.168.0.1
+    - 65.108.255.16
   # job:
   #   hosts:
   #     - 192.168.0.1
   #   cmd: bin/jobs
 
-# Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
-# Remove this section when using multiple web servers and ensure you terminate SSL at your load balancer.
-#
-# Note: If using Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
+# This app joins the shared kamal-proxy already running on this server (same as your
+# other Kamal apps). Routing is by `host`, so there are no per-app port conflicts.
+# kamal-proxy owns host ports 80/443 and auto-provisions a Let's Encrypt cert for this
+# host (per-hostname via SNI), so each app gets its own certificate.
 proxy:
   ssl: true
-  host: app.example.com
+  host: mosaic.tree-among-shrubs.com
 
 # Credentials for your image host.
 registry:
-  # Specify the registry server, if you're not using Docker Hub
-  # server: registry.digitalocean.com / ghcr.io / ...
-  username: your-user
+  # Docker Hub is the default registry server, so no `server:` line is needed.
+  username: benjiko99
 
   # Always use an access token rather than real password when possible.
   password:
