@@ -47,6 +47,20 @@ class Api::UsersTest < ActionDispatch::IntegrationTest
     assert_includes paths, "gender"
   end
 
+  test "PATCH clears nullable fields sent as blank multipart parts" do
+    # The Android client sends every text field on save; an emptied field arrives as a
+    # blank part (multipart can't carry a JSON null) and must clear, not fail validation.
+    patch "/api/users/u1",
+          params: { nickname: "Ada", age: "", gender: "", bio: "" },
+          headers: headers
+    assert_response :ok
+    user = response.parsed_body["data"]
+    assert_equal "Ada", user["nickname"]
+    assert_nil user["age"]
+    assert_nil user["gender"]
+    assert_nil user["bio"]
+  end
+
   test "PATCH uploads an avatar file and returns an absolute avatarUrl" do
     assert_not User.find("u1").avatar.attached?, "avatar should start unattached"
 
