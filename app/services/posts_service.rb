@@ -9,11 +9,13 @@ module PostsService
 
     liked = ViewerFlags.liked_post_ids(viewer_id, [post.id])
     bookmarked = ViewerFlags.bookmarked_post_ids(viewer_id, [post.id])
+    following_author = ViewerFlags.following_user_ids(viewer_id, [post.author_id])
 
     PostSerializer.full(
       post,
       is_liked: liked.include?(post.id),
-      is_bookmarked: bookmarked.include?(post.id)
+      is_bookmarked: bookmarked.include?(post.id),
+      is_following_author: following_author.include?(post.author_id)
     )
   end
 

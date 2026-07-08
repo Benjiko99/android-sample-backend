@@ -2,13 +2,17 @@ module Api
   class UsersController < BaseController
     def show
       render_data(
-        UsersService.get_by_id(params[:id]),
+        UsersService.get_by_id(params[:id], current_user_id),
         headers: { "Cache-Control" => "max-age=60, stale-while-revalidate=300" }
       )
     end
 
     def update
       render_data(UsersService.update_profile(params[:id], current_user_id, profile_params))
+    end
+
+    def toggle_follow
+      render_data(UsersService.toggle_follow(params[:id], current_user_id))
     end
 
     private

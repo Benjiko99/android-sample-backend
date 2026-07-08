@@ -10,6 +10,10 @@ class User < ApplicationRecord
   has_many :post_likes, dependent: :destroy
   has_many :post_bookmarks, dependent: :destroy
   has_many :comment_likes, dependent: :destroy
+  has_many :follower_follows, class_name: "Follow", foreign_key: :follower_id, inverse_of: :follower,
+                               dependent: :destroy
+  has_many :followee_follows, class_name: "Follow", foreign_key: :followee_id, inverse_of: :followee,
+                               dependent: :destroy
 
   # Allowed avatar uploads. Enforced by UsersService before attaching (see
   # UsersService#attach_avatar), which is why there's no model-level validation.

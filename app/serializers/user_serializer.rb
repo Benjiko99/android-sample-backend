@@ -2,7 +2,7 @@
 module UserSerializer
   module_function
 
-  def full(user)
+  def full(user, is_following:)
     {
       "id" => user.id,
       "nickname" => user.nickname,
@@ -13,16 +13,18 @@ module UserSerializer
       "bio" => user.bio,
       "avatarUrl" => avatar_url(user),
       "followerCount" => user.follower_count,
-      "followingCount" => user.following_count
+      "followingCount" => user.following_count,
+      "isFollowing" => is_following
     }
   end
 
-  def minimal(user)
+  def minimal(user, is_following:)
     {
       "id" => user.id,
       "handle" => user.handle,
       "nickname" => user.nickname,
-      "avatarUrl" => avatar_url(user)
+      "avatarUrl" => avatar_url(user),
+      "isFollowing" => is_following
     }
   end
 

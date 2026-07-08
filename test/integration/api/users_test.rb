@@ -8,8 +8,11 @@ class Api::UsersTest < ActionDispatch::IntegrationTest
     assert_response :ok
     user = response.parsed_body["data"]
     assert_equal "Grace Hopper", user["nickname"]
-    assert_equal %w[id nickname handle age gender location bio avatarUrl followerCount followingCount].sort,
-                 user.keys.sort
+    assert_equal(
+      %w[id nickname handle age gender location bio avatarUrl followerCount followingCount isFollowing].sort,
+      user.keys.sort
+    )
+    assert_equal false, user["isFollowing"]
     # Rails normalizes Cache-Control and adds a scope token (private); the
     # meaningful directives from the source are preserved.
     cache_control = response.headers["Cache-Control"]
@@ -81,5 +84,47 @@ class Api::UsersTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_equal "avatar", response.parsed_body["error"]["details"].first["path"]
     assert_not User.find("u1").avatar.attached?
+  end
+
+  test "POST follow follows a user and bumps both counters" do
+    follower_count = User.find("u2").follower_count
+    following_count = User.find("u1").following_count
+
+    post "/api/users/u2/follow", headers: headers("u1")
+    assert_response :ok
+    body = response.parsed_body["data"]
+    assert_equal true, body["isFollowing"]
+    assert_equal follower_count + 1, body["followerCount"]
+    assert_equal following_count + 1, User.find("u1").following_count
+    assert Follow.exists?(follower_id: "u1", followee_id: "u2")
+
+    get "/api/users/u2", headers: headers("u1")
+    assert_equal true, response.parsed_body["data"]["isFollowing"]
+  end
+
+  test "POST follow again unfollows" do
+    post "/api/users/u2/follow", headers: headers("u1")
+    assert_response :ok
+
+    follower_count = User.find("u2").follower_count
+    following_count = User.find("u1").following_count
+
+    post "/api/users/u2/follow", headers: headers("u1")
+    assert_response :ok
+    body = response.parsed_body["data"]
+    assert_equal false, body["isFollowing"]
+    assert_equal follower_count - 1, body["followerCount"]
+    assert_equal following_count - 1, User.find("u1").following_count
+  end
+
+  test "POST follow is forbidden for yourself" do
+    post "/api/users/u1/follow", headers: headers("u1")
+    assert_response :forbidden
+    assert_equal "FORBIDDEN", response.parsed_body["error"]["code"]
+  end
+
+  test "POST follow 404s for a missing target user" do
+    post "/api/users/nope/follow", headers: headers("u1")
+    assert_response :not_found
   end
 end

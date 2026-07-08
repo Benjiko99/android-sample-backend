@@ -48,7 +48,7 @@ class Api::FeedTest < ActionDispatch::IntegrationTest
     included = response.parsed_body["included"]
     assert included.present?
     user = included["users"].first
-    assert_equal %w[id handle nickname avatarUrl].sort, user.keys.sort
+    assert_equal %w[id handle nickname avatarUrl isFollowing].sort, user.keys.sort
   end
 
   test "omits included by default" do

@@ -9,11 +9,12 @@ module UsersService
 
   module_function
 
-  def get_by_id(id)
+  def get_by_id(id, viewer_id)
     user = User.find_by(id: id)
     raise ApiError::NotFound, "User '#{id}' was not found" if user.nil?
 
-    UserSerializer.full(user)
+    is_following = ViewerFlags.following_user_ids(viewer_id, [id]).include?(id)
+    UserSerializer.full(user, is_following: is_following)
   end
 
   # attrs: the raw permitted body hash. Only text keys actually present are
@@ -38,7 +39,37 @@ module UsersService
     attach_avatar(user, attrs["avatar"]) if attrs["avatar"].present?
 
     user.save!
-    UserSerializer.full(user)
+    # id == current_user_id was already enforced above, so a user can never be
+    # following themselves here.
+    UserSerializer.full(user, is_following: false)
+  end
+
+  # Toggles the current user following `target_id`, keeping the join row and
+  # both users' counters consistent in one transaction (mirrors LikeToggle).
+  def toggle_follow(target_id, viewer_id)
+    raise ApiError::Forbidden, "You cannot follow yourself" if target_id == viewer_id
+
+    target = User.find_by(id: target_id)
+    raise ApiError::NotFound, "User '#{target_id}' was not found" if target.nil?
+
+    follower = User.find_by(id: viewer_id)
+    raise ApiError::NotFound, "User '#{viewer_id}' was not found" if follower.nil?
+
+    existing = Follow.find_by(follower_id: viewer_id, followee_id: target_id)
+
+    User.transaction do
+      if existing
+        existing.destroy!
+        target.decrement!(:follower_count)
+        follower.decrement!(:following_count)
+      else
+        Follow.create!(follower_id: viewer_id, followee_id: target_id)
+        target.increment!(:follower_count)
+        follower.increment!(:following_count)
+      end
+    end
+
+    { "isFollowing" => existing.nil?, "followerCount" => target.follower_count }
   end
 
   # Validates the uploaded image before attaching. We check here rather than via a

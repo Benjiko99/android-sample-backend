@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_07_131900) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_07_140000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -61,6 +61,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_07_131900) do
     t.datetime "created_at", null: false
     t.index ["author_id"], name: "index_comments_on_author_id"
     t.index ["post_id", "created_at", "id"], name: "index_comments_on_post_id_and_created_at_and_id"
+  end
+
+  create_table "follows", primary_key: ["follower_id", "followee_id"], force: :cascade do |t|
+    t.string "follower_id", null: false
+    t.string "followee_id", null: false
+    t.index ["followee_id"], name: "index_follows_on_followee_id"
   end
 
   create_table "photos", id: :string, force: :cascade do |t|
@@ -128,6 +134,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_07_131900) do
   add_foreign_key "comment_likes", "users"
   add_foreign_key "comments", "posts", on_delete: :cascade
   add_foreign_key "comments", "users", column: "author_id"
+  add_foreign_key "follows", "users", column: "followee_id", on_delete: :cascade
+  add_foreign_key "follows", "users", column: "follower_id", on_delete: :cascade
   add_foreign_key "photos", "albums", on_delete: :cascade
   add_foreign_key "post_bookmarks", "posts", on_delete: :cascade
   add_foreign_key "post_bookmarks", "users"

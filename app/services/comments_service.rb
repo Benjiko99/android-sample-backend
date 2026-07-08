@@ -9,8 +9,16 @@ module CommentsService
 
     ids = page.items.map(&:id)
     liked = ViewerFlags.liked_comment_ids(viewer_id, ids)
+    author_ids = page.items.map(&:author_id).uniq
+    following = ViewerFlags.following_user_ids(viewer_id, author_ids)
 
-    items = page.items.map { |c| CommentSerializer.call(c, is_liked: liked.include?(c.id)) }
+    items = page.items.map do |c|
+      CommentSerializer.call(
+        c,
+        is_liked: liked.include?(c.id),
+        is_following_author: following.include?(c.author_id)
+      )
+    end
     Cursor::Page.new(items, page.page)
   end
 
@@ -24,8 +32,8 @@ module CommentsService
       post.increment!(:comment_count)
       c
     end
-    # A freshly created comment is never liked by its author.
-    CommentSerializer.call(comment, is_liked: false)
+    # A freshly created comment is never liked by, or following, its own author.
+    CommentSerializer.call(comment, is_liked: false, is_following_author: false)
   end
 
   def toggle_like(comment_id, viewer_id)
