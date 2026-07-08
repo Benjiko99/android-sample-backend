@@ -18,8 +18,7 @@ module Api
         params[:id],
         current_user_id,
         cursor_token: params[:cursor],
-        limit_param: params[:limit],
-        type: validate_enum!(params[:type], param: "type", allowed: %w[photo video text])
+        limit_param: params[:limit]
       )
       render_cursor(page)
     end

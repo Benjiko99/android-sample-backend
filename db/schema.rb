@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_07_140000) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_08_120238) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -121,7 +121,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_07_140000) do
     t.string "url", null: false
     t.string "thumbnail_url"
     t.integer "duration_seconds"
-    t.integer "view_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["user_id"], name: "index_videos_on_user_id"

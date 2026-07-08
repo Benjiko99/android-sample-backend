@@ -9,7 +9,6 @@ module VideoSerializer
       "id" => video.id,
       "title" => video.title,
       "durationSeconds" => video.duration_seconds,
-      "viewCount" => video.view_count,
       "videoUrl" => video.url
     }
   end

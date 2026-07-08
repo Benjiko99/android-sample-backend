@@ -15,9 +15,7 @@ module Reseed
     Rails.logger.info("[reseed] Resetting tables…")
     reset_tables
     seed_users
-    seed_profile_albums
     seed_post_attachment_albums
-    seed_profile_videos
     seed_post_attachment_videos
     seed_posts
     seed_likes_and_bookmarks
@@ -68,26 +66,6 @@ module Reseed
     ])
   end
 
-  def seed_profile_albums
-    Rails.logger.info("[reseed] Seeding profile albums…")
-    Album.create!([
-      { id: "a1", user_id: "u1", title: "Engine Sketches", item_count: 24 },
-      { id: "a2", user_id: "u1", title: "Notation Studies", item_count: 12 },
-      { id: "a3", user_id: "u1", title: "Loom Patterns", item_count: 18 },
-      { id: "a4", user_id: "u1", title: "Letters & Margins", item_count: 7 },
-      { id: "a5", user_id: "u2", title: "Mark I Logbook", item_count: 31 },
-      { id: "a6", user_id: "u2", title: "The First Bug", item_count: 4 },
-      { id: "a7", user_id: "u2", title: "Nanoseconds", item_count: 9 },
-      { id: "a8", user_id: "u3", title: "Bombe Rotors", item_count: 16 },
-      { id: "a9", user_id: "u3", title: "Morphogenesis", item_count: 22 },
-      { id: "a10", user_id: "u4", title: "Rope Memory", item_count: 14 },
-      { id: "a11", user_id: "u4", title: "Launch Room", item_count: 28 },
-      { id: "a12", user_id: "u4", title: "The Listing", item_count: 6 },
-      { id: "a13", user_id: "u5", title: "Build Logs", item_count: 42 },
-      { id: "a14", user_id: "u5", title: "Diving Trips", item_count: 11 }
-    ])
-  end
-
   def seed_post_attachment_albums
     Rails.logger.info("[reseed] Seeding post attachment albums…")
     [
@@ -101,30 +79,11 @@ module Reseed
     end
   end
 
-  def seed_profile_videos
-    Rails.logger.info("[reseed] Seeding profile videos…")
-    Video.create!([
-      { id: "v1", user_id: "u1", title: "Weaving algebra on the Analytical Engine", url: SAMPLE_VIDEO_URL, duration_seconds: 222, view_count: 41_200 },
-      { id: "v2", user_id: "u1", title: "Note G, explained", url: SAMPLE_VIDEO_URL, duration_seconds: 615, view_count: 12_800 },
-      { id: "v3", user_id: "u1", title: "Poetical science", url: SAMPLE_VIDEO_URL, duration_seconds: 95, view_count: 8_400 },
-      { id: "v4", user_id: "u2", title: "How a compiler thinks", url: SAMPLE_VIDEO_URL, duration_seconds: 1325, view_count: 220_000 },
-      { id: "v5", user_id: "u2", title: "A nanosecond in your hand", url: SAMPLE_VIDEO_URL, duration_seconds: 184, view_count: 1_200_000 },
-      { id: "v6", user_id: "u3", title: "The imitation game", url: SAMPLE_VIDEO_URL, duration_seconds: 742, view_count: 980_000 },
-      { id: "v7", user_id: "u3", title: "On computable numbers", url: SAMPLE_VIDEO_URL, duration_seconds: 2010, view_count: 154_000 },
-      { id: "v8", user_id: "u3", title: "Breaking Enigma", url: SAMPLE_VIDEO_URL, duration_seconds: 366, view_count: 512_300 },
-      { id: "v9", user_id: "u4", title: "The 1202 alarm", url: SAMPLE_VIDEO_URL, duration_seconds: 488, view_count: 1_540_000 },
-      { id: "v10", user_id: "u4", title: "Software, taken seriously", url: SAMPLE_VIDEO_URL, duration_seconds: 277, view_count: 96_500 },
-      { id: "v11", user_id: "u5", title: "Talk is cheap", url: SAMPLE_VIDEO_URL, duration_seconds: 132, view_count: 3_100_000 },
-      { id: "v12", user_id: "u5", title: "Git in ten minutes", url: SAMPLE_VIDEO_URL, duration_seconds: 631, view_count: 2_050_000 },
-      { id: "v13", user_id: "u5", title: "Why monolithic", url: SAMPLE_VIDEO_URL, duration_seconds: 1442, view_count: 740_000 }
-    ])
-  end
-
   def seed_post_attachment_videos
     Rails.logger.info("[reseed] Seeding post attachment videos…")
     Video.create!([
-      { id: "pv3", user_id: "u3", title: "The imitation game, in five seconds", url: SAMPLE_VIDEO_URL, duration_seconds: 5, view_count: 48_900 },
-      { id: "pv5", user_id: "u5", title: "Booting the kernel", url: SAMPLE_VIDEO_URL, duration_seconds: 5, view_count: 2_050_000 }
+      { id: "pv3", user_id: "u3", title: "The imitation game, in five seconds", url: SAMPLE_VIDEO_URL, duration_seconds: 5 },
+      { id: "pv5", user_id: "u5", title: "Booting the kernel", url: SAMPLE_VIDEO_URL, duration_seconds: 5 }
     ])
   end
 

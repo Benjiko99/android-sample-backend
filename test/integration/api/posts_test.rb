@@ -37,19 +37,9 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_equal({ "isBookmarked" => false }, response.parsed_body["data"])
   end
 
-  test "GET /api/users/:id/posts filters by type" do
-    get "/api/users/u1/posts?type=photo", headers: headers
+  test "GET /api/users/:id/posts returns the author's posts, newest first" do
+    get "/api/users/u1/posts", headers: headers
     assert_response :ok
-    ids = response.parsed_body["data"].map { |p| p["id"] }
-    assert_equal ["p1"], ids # only p1 has an album
-
-    get "/api/users/u1/posts?type=text", headers: headers
-    assert_equal ["p6"], response.parsed_body["data"].map { |p| p["id"] }
-  end
-
-  test "GET /api/users/:id/posts rejects an invalid type" do
-    get "/api/users/u1/posts?type=weird", headers: headers
-    assert_response :unprocessable_entity
-    assert_equal "VALIDATION_ERROR", response.parsed_body["error"]["code"]
+    assert_equal %w[p1 p6], response.parsed_body["data"].map { |p| p["id"] }
   end
 end

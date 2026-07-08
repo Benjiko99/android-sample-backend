@@ -1,5 +1,4 @@
-# Mirrors profile.service.ts. albumsCount / videosCount count only items NOT
-# linked to any post (profile-tab content).
+# Mirrors profile.service.ts.
 module ProfilesService
   module_function
 
@@ -7,10 +6,6 @@ module ProfilesService
     user = User.find_by(id: user_id)
     raise ApiError::NotFound, "User '#{user_id}' was not found" if user.nil?
 
-    {
-      "postsCount" => Post.where(author_id: user_id).count,
-      "albumsCount" => Album.where(user_id: user_id).where.missing(:posts).count,
-      "videosCount" => Video.where(user_id: user_id).where.missing(:posts).count
-    }
+    { "postsCount" => Post.where(author_id: user_id).count }
   end
 end

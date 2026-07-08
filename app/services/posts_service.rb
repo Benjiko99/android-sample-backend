@@ -19,11 +19,9 @@ module PostsService
     )
   end
 
-  # GET /users/:id/posts — profile tabs, keyset-paginated feed items.
-  # type: "photo" (has album), "video" (has video), "text" (neither), or nil (all).
-  def list_by_user(author_id, viewer_id, cursor_token:, limit_param:, type: nil)
+  # GET /users/:id/posts — the profile's Posts tab, keyset-paginated feed items.
+  def list_by_user(author_id, viewer_id, cursor_token:, limit_param:)
     relation = Post.includes(:video, album: :photos).where(author_id: author_id)
-    relation = apply_type_filter(relation, type)
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
@@ -63,14 +61,5 @@ module PostsService
       )
     end
     Cursor::Page.new(items, page.page)
-  end
-
-  def apply_type_filter(relation, type)
-    case type
-    when "photo" then relation.where.not(album_id: nil)
-    when "video" then relation.where.not(video_id: nil)
-    when "text"  then relation.where(album_id: nil, video_id: nil)
-    else relation
-    end
   end
 end
