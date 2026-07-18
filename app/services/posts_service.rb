@@ -19,6 +19,19 @@ module PostsService
     )
   end
 
+  # POST /posts — publishes a text post authored by the viewer. Media (album/video)
+  # is not authorable from the client, so a new post carries neither.
+  def create(author_id, title, body)
+    author = User.find_by(id: author_id)
+    raise ApiError::NotFound, "User '#{author_id}' was not found" if author.nil?
+
+    post = Post.create!(author_id: author_id, title: title, body: body)
+
+    # A freshly created post is never liked or bookmarked by, nor is its author followed
+    # by, the viewer — the viewer *is* the author.
+    PostSerializer.full(post, is_liked: false, is_bookmarked: false, is_following_author: false)
+  end
+
   # GET /users/:id/posts — the profile's Posts tab, keyset-paginated feed items.
   def list_by_user(author_id, viewer_id, cursor_token:, limit_param:)
     relation = Post.includes(:video, album: :photos).where(author_id: author_id)

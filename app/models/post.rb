@@ -8,4 +8,7 @@ class Post < ApplicationRecord
   has_many :comments, dependent: :destroy
   has_many :post_likes, dependent: :destroy
   has_many :post_bookmarks, dependent: :destroy
+
+  validates :title, length: { minimum: 1, maximum: 120 }
+  validates :body, length: { minimum: 1, maximum: 5000 }
 end
