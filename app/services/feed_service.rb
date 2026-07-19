@@ -6,12 +6,12 @@ module FeedService
   # include: "author" attaches minimal user projections for the page's authors.
   def list(viewer_id, cursor_token:, limit_param:, include: nil)
     page = PostsService.paginate_feed_items(
-      Post.includes(:video, album: :photos),
+      Post.includes(PostsService::MEDIA_INCLUDES),
       viewer_id,
       cursor_token:,
       limit_param:
     )
-    [page, author_included(page, viewer_id, include)]
+    [ page, author_included(page, viewer_id, include) ]
   end
 
   # Minimal user projections for the distinct authors on the page, or nil unless requested.

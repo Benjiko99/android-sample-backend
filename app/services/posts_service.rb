@@ -1,14 +1,19 @@
 # Mirrors post.service.ts + post.repository.ts.
 module PostsService
+  # Everything a post's media needs to serialize without N+1 queries: the album's
+  # photos and the video, each with its attachment and blob, since #display_url
+  # touches the attachment on every one. Shared with FeedService so the feed and
+  # the detail/profile paths can't drift apart.
+  MEDIA_INCLUDES = {
+    video: { file_attachment: :blob },
+    album: { photos: { image_attachment: :blob } }
+  }.freeze
+
   module_function
 
   # GET /posts/:id — full post with embedded author.
   def get_by_id(id, viewer_id)
-    post = Post.includes(
-      video: { file_attachment: :blob },
-      album: { photos: { image_attachment: :blob } },
-      author: { avatar_attachment: :blob }
-    ).find_by(id: id)
+    post = Post.includes(MEDIA_INCLUDES.merge(author: { avatar_attachment: :blob })).find_by(id: id)
     raise ApiError::NotFound, "Post '#{id}' was not found" if post.nil?
 
     liked = ViewerFlags.liked_post_ids(viewer_id, [ post.id ])
@@ -51,10 +56,7 @@ module PostsService
 
   # GET /users/:id/posts — the profile's Posts tab, keyset-paginated feed items.
   def list_by_user(author_id, viewer_id, cursor_token:, limit_param:)
-    relation = Post.includes(
-      video: { file_attachment: :blob },
-      album: { photos: { image_attachment: :blob } }
-    ).where(author_id: author_id)
+    relation = Post.includes(MEDIA_INCLUDES).where(author_id: author_id)
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
@@ -122,62 +124,44 @@ module PostsService
     video
   end
 
+  # Media is exclusive, and every uploaded file is checked before anything is
+  # written. Each file goes through the shared UploadValidation rule; only the
+  # limits, the error path, and the prose differ per kind.
   def validate_media!(images, video)
     if images.any? && video
-      raise_media_error("video", "media_conflict", "A post can have photos or a video, not both")
+      raise ApiError::Validation.for(
+        path: "video", code: "media_conflict",
+        message: "A post can have photos or a video, not both"
+      )
     end
-
-    validate_images!(images)
-    validate_video!(video) if video
-  end
-
-  def validate_images!(images)
-    return if images.empty?
 
     if images.length > Album::MAX_PHOTOS
-      raise_media_error("images", "too_many", "A post can have at most #{Album::MAX_PHOTOS} images")
+      raise ApiError::Validation.for(
+        path: "images", code: "too_many",
+        message: "A post can have at most #{Album::MAX_PHOTOS} images"
+      )
     end
 
-    images.each_with_index { |file, index| validate_image!(file, index) }
-  end
+    images.each_with_index do |file, index|
+      UploadValidation.validate!(
+        file,
+        path: "images.#{index}",
+        content_types: Photo::CONTENT_TYPES,
+        max_bytes: Photo::MAX_BYTES,
+        kind: "Image",
+        formats: "a JPEG, PNG, WebP, HEIC, or GIF"
+      )
+    end
 
-  def validate_video!(file)
-    content_type = Marcel::MimeType.for(
-      file.tempfile, name: file.original_filename, declared_type: file.content_type
+    return unless video
+
+    UploadValidation.validate!(
+      video,
+      path: "video",
+      content_types: Video::CONTENT_TYPES,
+      max_bytes: Video::MAX_BYTES,
+      kind: "Video",
+      formats: "an MP4, MOV, WebM, 3GP, MKV, or MPEG file"
     )
-
-    unless Video::CONTENT_TYPES.include?(content_type)
-      raise_media_error("video", "invalid_content_type", "Video must be an MP4, MOV, WebM, 3GP, MKV, or MPEG file")
-    end
-
-    return unless file.size > Video::MAX_BYTES
-
-    max_mb = Video::MAX_BYTES / 1.megabyte
-    raise_media_error("video", "too_large", "Video must be at most #{max_mb} MB")
-  end
-
-  # Content type is sniffed from the bytes (Marcel), not trusted from the
-  # client-declared type — same rule as UsersService#attach_avatar.
-  def validate_image!(file, index)
-    path = "images.#{index}"
-
-    content_type = Marcel::MimeType.for(
-      file.tempfile, name: file.original_filename, declared_type: file.content_type
-    )
-
-    unless Photo::CONTENT_TYPES.include?(content_type)
-      raise_media_error(path, "invalid_content_type", "Image must be a JPEG, PNG, WebP, HEIC, or GIF")
-    end
-
-    return unless file.size > Photo::MAX_BYTES
-
-    max_mb = Photo::MAX_BYTES / 1.megabyte
-    raise_media_error(path, "too_large", "Image must be at most #{max_mb} MB")
-  end
-
-  def raise_media_error(path, code, message)
-    raise ApiError::Validation.new("Validation failed", details: [
-      { "path" => path, "code" => code, "message" => message }
-    ])
   end
 end

@@ -13,7 +13,7 @@ module UsersService
     user = User.find_by(id: id)
     raise ApiError::NotFound, "User '#{id}' was not found" if user.nil?
 
-    is_following = ViewerFlags.following_user_ids(viewer_id, [id]).include?(id)
+    is_following = ViewerFlags.following_user_ids(viewer_id, [ id ]).include?(id)
     UserSerializer.full(user, is_following: is_following)
   end
 
@@ -75,28 +75,17 @@ module UsersService
   # Validates the uploaded image before attaching. We check here rather than via a
   # model validation because attaching to an already-persisted, otherwise-unchanged
   # record saves the attachment immediately — a later save! validation would fire
-  # too late to prevent it. Content type is sniffed from the bytes (Marcel), not
-  # trusted from the client-declared type.
+  # too late to prevent it.
   def attach_avatar(user, file)
-    content_type = Marcel::MimeType.for(
-      file.tempfile, name: file.original_filename, declared_type: file.content_type
+    UploadValidation.validate!(
+      file,
+      path: "avatar",
+      content_types: User::AVATAR_CONTENT_TYPES,
+      max_bytes: User::AVATAR_MAX_BYTES,
+      kind: "Avatar",
+      formats: "a JPEG, PNG, WebP, HEIC, or GIF image"
     )
 
-    unless User::AVATAR_CONTENT_TYPES.include?(content_type)
-      raise_avatar_error("Avatar must be a JPEG, PNG, WebP, HEIC, or GIF image", "invalid_content_type")
-    end
-
-    if file.size > User::AVATAR_MAX_BYTES
-      max_mb = User::AVATAR_MAX_BYTES / 1.megabyte
-      raise_avatar_error("Avatar must be at most #{max_mb} MB", "too_large")
-    end
-
     user.avatar.attach(file)
-  end
-
-  def raise_avatar_error(message, code)
-    raise ApiError::Validation.new("Validation failed", details: [
-      { "path" => "avatar", "code" => code, "message" => message }
-    ])
   end
 end

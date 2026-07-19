@@ -49,6 +49,8 @@ module Api
       return value if allowed.include?(value)
 
       expected = allowed.map { |v| "'#{v}'" }.join(" | ")
+      # Not ApiError::Validation.for — this one carries its own envelope message
+      # ("Invalid query parameters"), which clients may be matching on.
       raise ApiError::Validation.new("Invalid query parameters", details: [
         { "path" => param, "code" => "invalid_enum_value", "message" => "Invalid option: expected #{expected}" }
       ])

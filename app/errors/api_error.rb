@@ -23,6 +23,13 @@ class ApiError < StandardError
     def initialize(message = "Validation failed", details: nil)
       super(message, status: 422, code: "VALIDATION_ERROR", details: details)
     end
+
+    # The common case: one field-level complaint. Builds the {path, code, message}
+    # detail the clients parse, so its shape is defined once rather than hand-rolled
+    # at each raise site.
+    def self.for(path:, code:, message:)
+      new(details: [ { "path" => path, "code" => code, "message" => message } ])
+    end
   end
 
   class Forbidden < ApiError

@@ -16,6 +16,35 @@ class Api::FeedTest < ActionDispatch::IntegrationTest
     assert_nil body["page"]["next_cursor"]
   end
 
+  # Serializing an uploaded photo or video touches its attachment and blob, so a
+  # missing eager-load turns into a query per media row. That is invisible to the
+  # assertions above — the payload is identical either way — hence a query count.
+  test "the feed does not issue per-attachment queries for uploaded media" do
+    3.times do |i|
+      post "/api/posts",
+        params: { title: "Album #{i}", body: "Body",
+                  images: Array.new(3) { fixture_file_upload("avatar.png", "image/png") } },
+        headers: headers
+    end
+    post "/api/posts",
+      params: { title: "Clip", body: "Body", video: fixture_file_upload("clip.mp4", "video/mp4") },
+      headers: headers
+
+    queries = 0
+    counter = ->(_name, _start, _finish, _id, payload) do
+      queries += 1 unless payload[:name] == "SCHEMA" || payload[:sql].start_with?("TRANSACTION")
+    end
+
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+      get "/api/feed", headers: headers
+    end
+    assert_response :ok
+
+    # 10 posts, 9 uploaded photos and 1 uploaded video across them. Eager-loaded
+    # this is a fixed handful of queries; unbatched it climbs past 20.
+    assert_operator queries, :<, 20, "feed issued #{queries} queries — an eager-load is missing"
+  end
+
   test "camelCase fields and viewer-scoped flags for u1" do
     get "/api/feed", headers: headers("u1")
     by_id = response.parsed_body["data"].index_by { |p| p["id"] }
