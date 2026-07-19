@@ -30,6 +30,7 @@ module Reseed
     # avatars and to the photos of client-authored albums alike.
     User.find_each { |user| user.avatar.purge if user.avatar.attached? }
     Photo.find_each { |photo| photo.image.purge if photo.image.attached? }
+    Video.find_each { |video| video.file.purge if video.file.attached? }
 
     CommentLike.delete_all
     Comment.delete_all

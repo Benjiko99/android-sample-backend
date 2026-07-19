@@ -6,7 +6,14 @@ module Api
 
     def create
       render_created(
-        PostsService.create(current_user_id, trimmed(:title), trimmed(:body), images: uploaded_images)
+        PostsService.create(
+          current_user_id,
+          trimmed(:title),
+          trimmed(:body),
+          images: uploaded_images,
+          video: uploaded_video,
+          video_duration_seconds: params[:videoDurationSeconds]
+        )
       )
     end
 
@@ -43,6 +50,12 @@ module Api
     # sending `images=["hi"]` gets an empty album rather than a 500.
     def uploaded_images
       Array(params[:images]).select { |value| value.respond_to?(:tempfile) }
+    end
+
+    # The single `video` part of a multipart create, guarded the same way.
+    def uploaded_video
+      video = params[:video]
+      video if video.respond_to?(:tempfile)
     end
   end
 end

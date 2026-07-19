@@ -11,4 +11,16 @@ class Post < ApplicationRecord
 
   validates :title, length: { minimum: 1, maximum: 120 }
   validates :body, length: { minimum: 1, maximum: 5000 }
+  validate :at_most_one_media_kind
+
+  private
+
+  # A post's media is an album *or* a video, never both — the clients render one
+  # media block and have no layout for two. PostsService rejects the combination
+  # up front; this is the invariant's backstop at the record level.
+  def at_most_one_media_kind
+    return if album_id.blank? || video_id.blank?
+
+    errors.add(:video, "cannot be set on a post that already has photos")
+  end
 end

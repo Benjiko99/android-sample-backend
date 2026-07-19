@@ -5,7 +5,7 @@ module PostsService
   # GET /posts/:id — full post with embedded author.
   def get_by_id(id, viewer_id)
     post = Post.includes(
-      :video,
+      video: { file_attachment: :blob },
       album: { photos: { image_attachment: :blob } },
       author: { avatar_attachment: :blob }
     ).find_by(id: id)
@@ -23,22 +23,24 @@ module PostsService
     )
   end
 
-  # POST /posts — publishes a post authored by the viewer. `images` are optional
-  # multipart uploads; when present they become an Album attached to the post.
-  # Video is still not authorable from the client.
-  def create(author_id, title, body, images: [])
+  # POST /posts — publishes a post authored by the viewer. Media is optional and
+  # exclusive: `images` become an Album, `video` becomes a Video, and sending both
+  # is rejected. `video_duration_seconds` comes from the client because extracting
+  # it server-side would mean shipping ffmpeg in the image for one metadata field.
+  def create(author_id, title, body, images: [], video: nil, video_duration_seconds: nil)
     author = User.find_by(id: author_id)
     raise ApiError::NotFound, "User '#{author_id}' was not found" if author.nil?
 
-    # Both the text and every image are checked before anything is written.
+    # The text and every uploaded file are checked before anything is written.
     # Attaching persists a blob immediately, so validating late would leave
     # uploaded bytes orphaned behind a post that then failed to save.
     post = Post.new(author_id: author_id, title: title, body: body)
     post.validate!
-    validate_images!(images)
+    validate_media!(images, video)
 
     Post.transaction do
       post.album = create_album(author, title, images) if images.any?
+      post.video = create_video(author, title, video, video_duration_seconds) if video
       post.save!
     end
 
@@ -49,8 +51,10 @@ module PostsService
 
   # GET /users/:id/posts — the profile's Posts tab, keyset-paginated feed items.
   def list_by_user(author_id, viewer_id, cursor_token:, limit_param:)
-    relation = Post.includes(:video, album: { photos: { image_attachment: :blob } })
-                   .where(author_id: author_id)
+    relation = Post.includes(
+      video: { file_attachment: :blob },
+      album: { photos: { image_attachment: :blob } }
+    ).where(author_id: author_id)
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
@@ -104,14 +108,52 @@ module PostsService
     album
   end
 
+  # An authored video is titled after its post, for the same reason an album is.
+  # Duration is clamped to a non-negative integer: it is display metadata the
+  # client reports about its own file, so it is sanitized rather than trusted.
+  def create_video(author, title, file, duration_seconds)
+    video = Video.create!(
+      user: author,
+      title: title,
+      duration_seconds: [ duration_seconds.to_i, 0 ].max
+    )
+    video.file.attach(file)
+
+    video
+  end
+
+  def validate_media!(images, video)
+    if images.any? && video
+      raise_media_error("video", "media_conflict", "A post can have photos or a video, not both")
+    end
+
+    validate_images!(images)
+    validate_video!(video) if video
+  end
+
   def validate_images!(images)
     return if images.empty?
 
     if images.length > Album::MAX_PHOTOS
-      raise_image_error("images", "too_many", "A post can have at most #{Album::MAX_PHOTOS} images")
+      raise_media_error("images", "too_many", "A post can have at most #{Album::MAX_PHOTOS} images")
     end
 
     images.each_with_index { |file, index| validate_image!(file, index) }
+  end
+
+  def validate_video!(file)
+    content_type = Marcel::MimeType.for(
+      file.tempfile, name: file.original_filename, declared_type: file.content_type
+    )
+
+    unless Video::CONTENT_TYPES.include?(content_type)
+      raise_media_error("video", "invalid_content_type", "Video must be an MP4, MOV, WebM, 3GP, MKV, or MPEG file")
+    end
+
+    return unless file.size > Video::MAX_BYTES
+
+    max_mb = Video::MAX_BYTES / 1.megabyte
+    raise_media_error("video", "too_large", "Video must be at most #{max_mb} MB")
   end
 
   # Content type is sniffed from the bytes (Marcel), not trusted from the
@@ -124,16 +166,16 @@ module PostsService
     )
 
     unless Photo::CONTENT_TYPES.include?(content_type)
-      raise_image_error(path, "invalid_content_type", "Image must be a JPEG, PNG, WebP, HEIC, or GIF")
+      raise_media_error(path, "invalid_content_type", "Image must be a JPEG, PNG, WebP, HEIC, or GIF")
     end
 
     return unless file.size > Photo::MAX_BYTES
 
     max_mb = Photo::MAX_BYTES / 1.megabyte
-    raise_image_error(path, "too_large", "Image must be at most #{max_mb} MB")
+    raise_media_error(path, "too_large", "Image must be at most #{max_mb} MB")
   end
 
-  def raise_image_error(path, code, message)
+  def raise_media_error(path, code, message)
     raise ApiError::Validation.new("Validation failed", details: [
       { "path" => path, "code" => code, "message" => message }
     ])

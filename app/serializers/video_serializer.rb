@@ -1,4 +1,4 @@
-# Mirrors video.schema.ts (toVideoDTO). Exposes `url` as `videoUrl`.
+# Mirrors video.schema.ts (toVideoDTO). Exposes the playable URL as `videoUrl`.
 module VideoSerializer
   module_function
 
@@ -8,8 +8,10 @@ module VideoSerializer
     {
       "id" => video.id,
       "title" => video.title,
-      "durationSeconds" => video.duration_seconds,
-      "videoUrl" => video.url
+      # Clients type this as a plain integer, so a video whose duration was never
+      # recorded reports 0 rather than breaking their deserialization.
+      "durationSeconds" => video.duration_seconds.to_i,
+      "videoUrl" => video.display_url
     }
   end
 end

@@ -142,6 +142,88 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_equal "title", response.parsed_body["error"]["details"].first["path"]
   end
 
+  test "POST /api/posts attaches an uploaded video to the post" do
+    assert_difference -> { Video.count } => 1 do
+      post "/api/posts",
+        params: { title: "A clip", body: "Recorded today",
+                  video: fixture_file_upload("clip.mp4", "video/mp4"),
+                  videoDurationSeconds: 42 },
+        headers: headers
+    end
+    assert_response :created
+    video = response.parsed_body["data"]["video"]
+
+    assert_equal "A clip", video["title"]
+    assert_equal 42, video["durationSeconds"]
+    assert_match %r{\Ahttp://example\.com/.*active_storage}, video["videoUrl"]
+    assert_nil response.parsed_body["data"]["album"]
+  end
+
+  test "an uploaded video survives a refetch and appears in the feed" do
+    post "/api/posts",
+      params: { title: "A clip", body: "Body",
+                video: fixture_file_upload("clip.mp4", "video/mp4"),
+                videoDurationSeconds: 7 },
+      headers: headers
+    id = response.parsed_body["data"]["id"]
+
+    get "/api/posts/#{id}", headers: headers
+    assert_response :ok
+    assert_equal 7, response.parsed_body["data"]["video"]["durationSeconds"]
+
+    get "/api/feed", headers: headers
+    assert_equal id, response.parsed_body["data"].first["id"]
+    assert_not_nil response.parsed_body["data"].first["video"]["videoUrl"]
+  end
+
+  test "POST /api/posts rejects photos and a video together, storing neither" do
+    assert_no_difference [ -> { Post.count }, -> { Album.count }, -> { Video.count } ] do
+      post "/api/posts",
+        params: { title: "Both", body: "Body",
+                  images: [ fixture_file_upload("avatar.png", "image/png") ],
+                  video: fixture_file_upload("clip.mp4", "video/mp4") },
+        headers: headers
+    end
+    assert_response :unprocessable_entity
+
+    detail = response.parsed_body["error"]["details"].first
+    assert_equal "video", detail["path"]
+    assert_equal "media_conflict", detail["code"]
+  end
+
+  test "POST /api/posts rejects a non-video upload in the video slot" do
+    assert_no_difference [ -> { Post.count }, -> { Video.count } ] do
+      post "/api/posts",
+        params: { title: "Bad", body: "Body",
+                  video: fixture_file_upload("avatar.png", "image/png") },
+        headers: headers
+    end
+    assert_response :unprocessable_entity
+    assert_equal "invalid_content_type", response.parsed_body["error"]["details"].first["code"]
+  end
+
+  test "a missing or negative video duration is stored as zero" do
+    post "/api/posts",
+      params: { title: "No duration", body: "Body",
+                video: fixture_file_upload("clip.mp4", "video/mp4") },
+      headers: headers
+    assert_equal 0, response.parsed_body["data"]["video"]["durationSeconds"]
+
+    post "/api/posts",
+      params: { title: "Negative", body: "Body",
+                video: fixture_file_upload("clip.mp4", "video/mp4"),
+                videoDurationSeconds: -5 },
+      headers: headers
+    assert_equal 0, response.parsed_body["data"]["video"]["durationSeconds"]
+  end
+
+  test "a post cannot hold both an album and a video at the record level" do
+    post = Post.new(author_id: "u1", title: "Both", body: "Body", album_id: "pa1", video_id: "pv3")
+
+    assert_not post.valid?
+    assert_includes post.errors.attribute_names, :video
+  end
+
   test "like toggles on and off and adjusts the counter" do
     post "/api/posts/p2/like", headers: headers
     assert_response :ok

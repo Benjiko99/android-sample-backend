@@ -10,15 +10,15 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_19_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_19_210000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
     t.string "record_id", null: false
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
-    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
-    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+    t.index [ "blob_id" ], name: "index_active_storage_attachments_on_blob_id"
+    t.index [ "record_type", "record_id", "name", "blob_id" ], name: "index_active_storage_attachments_uniqueness", unique: true
   end
 
   create_table "active_storage_blobs", force: :cascade do |t|
@@ -30,13 +30,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_19_120000) do
     t.bigint "byte_size", null: false
     t.string "checksum"
     t.datetime "created_at", null: false
-    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+    t.index [ "key" ], name: "index_active_storage_blobs_on_key", unique: true
   end
 
   create_table "active_storage_variant_records", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
-    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+    t.index [ "blob_id", "variation_digest" ], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
   create_table "albums", id: :string, force: :cascade do |t|
@@ -45,10 +45,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_19_120000) do
     t.integer "item_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["user_id"], name: "index_albums_on_user_id"
+    t.index [ "user_id" ], name: "index_albums_on_user_id"
   end
 
-  create_table "comment_likes", primary_key: ["user_id", "comment_id"], force: :cascade do |t|
+  create_table "comment_likes", primary_key: [ "user_id", "comment_id" ], force: :cascade do |t|
     t.string "user_id", null: false
     t.string "comment_id", null: false
   end
@@ -59,29 +59,29 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_19_120000) do
     t.string "text", null: false
     t.integer "like_count", default: 0, null: false
     t.datetime "created_at", null: false
-    t.index ["author_id"], name: "index_comments_on_author_id"
-    t.index ["post_id", "created_at", "id"], name: "index_comments_on_post_id_and_created_at_and_id"
+    t.index [ "author_id" ], name: "index_comments_on_author_id"
+    t.index [ "post_id", "created_at", "id" ], name: "index_comments_on_post_id_and_created_at_and_id"
   end
 
-  create_table "follows", primary_key: ["follower_id", "followee_id"], force: :cascade do |t|
+  create_table "follows", primary_key: [ "follower_id", "followee_id" ], force: :cascade do |t|
     t.string "follower_id", null: false
     t.string "followee_id", null: false
-    t.index ["followee_id"], name: "index_follows_on_followee_id"
+    t.index [ "followee_id" ], name: "index_follows_on_followee_id"
   end
 
   create_table "photos", id: :string, force: :cascade do |t|
     t.string "album_id", null: false
     t.string "url"
     t.integer "position", default: 0, null: false
-    t.index ["album_id"], name: "index_photos_on_album_id"
+    t.index [ "album_id" ], name: "index_photos_on_album_id"
   end
 
-  create_table "post_bookmarks", primary_key: ["user_id", "post_id"], force: :cascade do |t|
+  create_table "post_bookmarks", primary_key: [ "user_id", "post_id" ], force: :cascade do |t|
     t.string "user_id", null: false
     t.string "post_id", null: false
   end
 
-  create_table "post_likes", primary_key: ["user_id", "post_id"], force: :cascade do |t|
+  create_table "post_likes", primary_key: [ "user_id", "post_id" ], force: :cascade do |t|
     t.string "user_id", null: false
     t.string "post_id", null: false
   end
@@ -96,10 +96,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_19_120000) do
     t.integer "comment_count", default: 0, null: false
     t.string "album_id"
     t.string "video_id"
-    t.index ["album_id"], name: "index_posts_on_album_id"
-    t.index ["author_id"], name: "index_posts_on_author_id"
-    t.index ["created_at", "id"], name: "index_posts_on_created_at_and_id"
-    t.index ["video_id"], name: "index_posts_on_video_id"
+    t.index [ "album_id" ], name: "index_posts_on_album_id"
+    t.index [ "author_id" ], name: "index_posts_on_author_id"
+    t.index [ "created_at", "id" ], name: "index_posts_on_created_at_and_id"
+    t.index [ "video_id" ], name: "index_posts_on_video_id"
   end
 
   create_table "users", id: :string, force: :cascade do |t|
@@ -111,17 +111,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_19_120000) do
     t.string "bio"
     t.integer "follower_count", default: 0, null: false
     t.integer "following_count", default: 0, null: false
-    t.index ["handle"], name: "index_users_on_handle", unique: true
+    t.index [ "handle" ], name: "index_users_on_handle", unique: true
   end
 
   create_table "videos", id: :string, force: :cascade do |t|
     t.string "user_id", null: false
     t.string "title", null: false
-    t.string "url", null: false
+    t.string "url"
     t.integer "duration_seconds"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["user_id"], name: "index_videos_on_user_id"
+    t.index [ "user_id" ], name: "index_videos_on_user_id"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
