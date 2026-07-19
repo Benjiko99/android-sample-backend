@@ -5,7 +5,9 @@ module Api
     end
 
     def create
-      render_created(PostsService.create(current_user_id, trimmed(:title), trimmed(:body)))
+      render_created(
+        PostsService.create(current_user_id, trimmed(:title), trimmed(:body), images: uploaded_images)
+      )
     end
 
     def toggle_like
@@ -34,6 +36,13 @@ module Api
     def trimmed(key)
       value = params[key]
       value.is_a?(String) ? value.strip : value
+    end
+
+    # The `images[]` parts of a multipart create. A JSON request carries none; the
+    # respond_to? guard drops anything that isn't an uploaded file, so a client
+    # sending `images=["hi"]` gets an empty album rather than a 500.
+    def uploaded_images
+      Array(params[:images]).select { |value| value.respond_to?(:tempfile) }
     end
   end
 end

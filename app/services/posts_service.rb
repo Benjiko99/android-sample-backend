@@ -4,12 +4,16 @@ module PostsService
 
   # GET /posts/:id — full post with embedded author.
   def get_by_id(id, viewer_id)
-    post = Post.includes(:video, album: :photos, author: { avatar_attachment: :blob }).find_by(id: id)
+    post = Post.includes(
+      :video,
+      album: { photos: { image_attachment: :blob } },
+      author: { avatar_attachment: :blob }
+    ).find_by(id: id)
     raise ApiError::NotFound, "Post '#{id}' was not found" if post.nil?
 
-    liked = ViewerFlags.liked_post_ids(viewer_id, [post.id])
-    bookmarked = ViewerFlags.bookmarked_post_ids(viewer_id, [post.id])
-    following_author = ViewerFlags.following_user_ids(viewer_id, [post.author_id])
+    liked = ViewerFlags.liked_post_ids(viewer_id, [ post.id ])
+    bookmarked = ViewerFlags.bookmarked_post_ids(viewer_id, [ post.id ])
+    following_author = ViewerFlags.following_user_ids(viewer_id, [ post.author_id ])
 
     PostSerializer.full(
       post,
@@ -19,13 +23,24 @@ module PostsService
     )
   end
 
-  # POST /posts — publishes a text post authored by the viewer. Media (album/video)
-  # is not authorable from the client, so a new post carries neither.
-  def create(author_id, title, body)
+  # POST /posts — publishes a post authored by the viewer. `images` are optional
+  # multipart uploads; when present they become an Album attached to the post.
+  # Video is still not authorable from the client.
+  def create(author_id, title, body, images: [])
     author = User.find_by(id: author_id)
     raise ApiError::NotFound, "User '#{author_id}' was not found" if author.nil?
 
-    post = Post.create!(author_id: author_id, title: title, body: body)
+    # Both the text and every image are checked before anything is written.
+    # Attaching persists a blob immediately, so validating late would leave
+    # uploaded bytes orphaned behind a post that then failed to save.
+    post = Post.new(author_id: author_id, title: title, body: body)
+    post.validate!
+    validate_images!(images)
+
+    Post.transaction do
+      post.album = create_album(author, title, images) if images.any?
+      post.save!
+    end
 
     # A freshly created post is never liked or bookmarked by, nor is its author followed
     # by, the viewer — the viewer *is* the author.
@@ -34,7 +49,8 @@ module PostsService
 
   # GET /users/:id/posts — the profile's Posts tab, keyset-paginated feed items.
   def list_by_user(author_id, viewer_id, cursor_token:, limit_param:)
-    relation = Post.includes(:video, album: :photos).where(author_id: author_id)
+    relation = Post.includes(:video, album: { photos: { image_attachment: :blob } })
+                   .where(author_id: author_id)
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
@@ -74,5 +90,52 @@ module PostsService
       )
     end
     Cursor::Page.new(items, page.page)
+  end
+
+  # An authored album is titled after its post — it exists to carry the post's
+  # photos, not as a collection the user curates separately.
+  def create_album(author, title, images)
+    album = Album.create!(user: author, title: title, item_count: images.length)
+
+    images.each_with_index do |file, position|
+      album.photos.create!(position: position).image.attach(file)
+    end
+
+    album
+  end
+
+  def validate_images!(images)
+    return if images.empty?
+
+    if images.length > Album::MAX_PHOTOS
+      raise_image_error("images", "too_many", "A post can have at most #{Album::MAX_PHOTOS} images")
+    end
+
+    images.each_with_index { |file, index| validate_image!(file, index) }
+  end
+
+  # Content type is sniffed from the bytes (Marcel), not trusted from the
+  # client-declared type — same rule as UsersService#attach_avatar.
+  def validate_image!(file, index)
+    path = "images.#{index}"
+
+    content_type = Marcel::MimeType.for(
+      file.tempfile, name: file.original_filename, declared_type: file.content_type
+    )
+
+    unless Photo::CONTENT_TYPES.include?(content_type)
+      raise_image_error(path, "invalid_content_type", "Image must be a JPEG, PNG, WebP, HEIC, or GIF")
+    end
+
+    return unless file.size > Photo::MAX_BYTES
+
+    max_mb = Photo::MAX_BYTES / 1.megabyte
+    raise_image_error(path, "too_large", "Image must be at most #{max_mb} MB")
+  end
+
+  def raise_image_error(path, code, message)
+    raise ApiError::Validation.new("Validation failed", details: [
+      { "path" => path, "code" => code, "message" => message }
+    ])
   end
 end

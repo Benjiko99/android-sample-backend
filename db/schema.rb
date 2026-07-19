@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_08_121659) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_19_120000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -71,7 +71,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_08_121659) do
 
   create_table "photos", id: :string, force: :cascade do |t|
     t.string "album_id", null: false
-    t.string "url", null: false
+    t.string "url"
     t.integer "position", default: 0, null: false
     t.index ["album_id"], name: "index_photos_on_album_id"
   end

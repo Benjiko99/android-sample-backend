@@ -69,6 +69,79 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "POST /api/posts attaches uploaded images as the post's album" do
+    assert_difference -> { Album.count } => 1, -> { Photo.count } => 2 do
+      post "/api/posts",
+        params: { title: "Sketches", body: "Two of them",
+                  images: [ fixture_file_upload("avatar.png", "image/png"),
+                           fixture_file_upload("avatar.png", "image/png") ] },
+        headers: headers
+    end
+    assert_response :created
+    album = response.parsed_body["data"]["album"]
+
+    assert_equal "Sketches", album["title"]
+    assert_equal 2, album["itemCount"]
+    assert_equal 2, album["images"].length
+    album["images"].each { |url| assert_match %r{\Ahttp://example\.com/.*active_storage}, url }
+  end
+
+  test "an uploaded album survives a refetch and serves every image" do
+    post "/api/posts",
+      params: { title: "Sketches", body: "Body",
+                images: Array.new(4) { fixture_file_upload("avatar.png", "image/png") } },
+      headers: headers
+    id = response.parsed_body["data"]["id"]
+
+    get "/api/posts/#{id}", headers: headers
+    assert_response :ok
+    assert_equal 4, response.parsed_body["data"]["album"]["images"].length
+  end
+
+  test "POST /api/posts with no images creates no album" do
+    assert_no_difference -> { Album.count } do
+      post "/api/posts", params: { title: "Text only", body: "Body" }, headers: headers
+    end
+    assert_nil response.parsed_body["data"]["album"]
+  end
+
+  test "POST /api/posts rejects a non-image upload and stores nothing" do
+    assert_no_difference [ -> { Post.count }, -> { Album.count }, -> { Photo.count } ] do
+      post "/api/posts",
+        params: { title: "Sketches", body: "Body",
+                  images: [ fixture_file_upload("avatar.png", "image/png"),
+                           fixture_file_upload("not_an_image.txt", "text/plain") ] },
+        headers: headers
+    end
+    assert_response :unprocessable_entity
+
+    detail = response.parsed_body["error"]["details"].first
+    assert_equal "images.1", detail["path"]
+    assert_equal "invalid_content_type", detail["code"]
+  end
+
+  test "POST /api/posts rejects more than the per-album image limit" do
+    assert_no_difference -> { Photo.count } do
+      post "/api/posts",
+        params: { title: "Too many", body: "Body",
+                  images: Array.new(Album::MAX_PHOTOS + 1) { fixture_file_upload("avatar.png", "image/png") } },
+        headers: headers
+    end
+    assert_response :unprocessable_entity
+    assert_equal "too_many", response.parsed_body["error"]["details"].first["code"]
+  end
+
+  test "a blank title with images uploads nothing" do
+    assert_no_difference [ -> { Album.count }, -> { Photo.count } ] do
+      post "/api/posts",
+        params: { title: "   ", body: "Body",
+                  images: [ fixture_file_upload("avatar.png", "image/png") ] },
+        headers: headers
+    end
+    assert_response :unprocessable_entity
+    assert_equal "title", response.parsed_body["error"]["details"].first["path"]
+  end
+
   test "like toggles on and off and adjusts the counter" do
     post "/api/posts/p2/like", headers: headers
     assert_response :ok
