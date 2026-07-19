@@ -9,7 +9,10 @@ options =
   when "test"
     { host: "example.com" }
   else
-    { host: "localhost", port: 3000 }
+    # APP_HOST is overridable in development too: an emulator or a phone on the LAN
+    # can't resolve "localhost" to this machine, and the stored images are served
+    # from whatever host is baked into these URLs (e.g. APP_HOST=10.0.2.2).
+    { host: ENV.fetch("APP_HOST", "localhost"), port: ENV.fetch("APP_PORT", 3000) }
   end
 
 Rails.application.routes.default_url_options = options

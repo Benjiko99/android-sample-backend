@@ -25,9 +25,11 @@ module Reseed
 
   # ── Deletion (FK-safe order, children first) ─────────────────────────────────
   def reset_tables
-    # Purge avatars first: delete_all skips callbacks, so an uploaded avatar would
-    # otherwise dangle (attachment + blob) onto the recreated fixture user.
+    # Purge attachments first: delete_all skips callbacks, so uploaded files would
+    # otherwise dangle (attachment + blob) after their owning row is gone. Applies to
+    # avatars and to the photos of client-authored albums alike.
     User.find_each { |user| user.avatar.purge if user.avatar.attached? }
+    Photo.find_each { |photo| photo.image.purge if photo.image.attached? }
 
     CommentLike.delete_all
     Comment.delete_all
