@@ -74,12 +74,12 @@ class Api::FeedTest < ActionDispatch::IntegrationTest
     assert_equal %w[p3 p4], second["data"].map { |p| p["id"] }
   end
 
-  test "include=author attaches minimal users" do
+  test "include=author attaches users" do
     get "/api/feed?include=author", headers: headers
     included = response.parsed_body["included"]
     assert included.present?
     user = included["users"].first
-    assert_equal %w[id handle nickname avatarUrl isFollowing].sort, user.keys.sort
+    assert_equal USER_KEYS, user.keys.sort
   end
 
   test "omits included by default" do

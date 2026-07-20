@@ -147,14 +147,14 @@ module PostsService
     Cursor::Page.new(items, page.page)
   end
 
-  # Shared: minimal user projections for the distinct authors on a page of feed items.
+  # Shared: user projections for the distinct authors on a page of feed items.
   # The feed offers these behind `include=author`; the bookmarks list always sends them.
   def author_included(page, viewer_id)
     author_ids = page.items.map { |item| item["authorId"] }.uniq
     users = author_ids.empty? ? [] : User.where(id: author_ids).with_attached_avatar
     following = ViewerFlags.following_user_ids(viewer_id, author_ids)
 
-    { "users" => users.map { |u| UserSerializer.minimal(u, is_following: following.include?(u.id)) } }
+    { "users" => users.map { |u| UserSerializer.serialize(u, is_following: following.include?(u.id)) } }
   end
 
   # An authored album is titled after its post — it exists to carry the post's

@@ -25,12 +25,12 @@ class Api::LikesTest < ActionDispatch::IntegrationTest
     assert_equal [], response.parsed_body["data"]
   end
 
-  test "always includes the minimal authors of the page" do
+  test "always includes the authors of the page" do
     get "/api/users/u1/likes", headers: headers("u1")
     included = response.parsed_body["included"]
 
     assert_equal %w[u3 u4], included["users"].map { |u| u["id"] }.sort
-    assert_equal %w[id handle nickname avatarUrl isFollowing].sort, included["users"].first.keys.sort
+    assert_equal USER_KEYS, included["users"].first.keys.sort
   end
 
   # The list is whose likes are being read, but the flags on each item belong to the

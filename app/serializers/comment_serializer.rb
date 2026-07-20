@@ -9,7 +9,7 @@ module CommentSerializer
       "createdAt" => comment.created_at.iso8601,
       "likeCount" => comment.like_count,
       "isLiked" => is_liked,
-      "author" => UserSerializer.full(comment.author, is_following: is_following_author)
+      "author" => UserSerializer.serialize(comment.author, is_following: is_following_author)
     }
   end
 end

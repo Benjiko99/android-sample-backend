@@ -1,8 +1,12 @@
-# Mirrors user.schema.ts (toUserFullDTO / toUserMinimalDTO).
+# There is one user projection, deliberately. A partial one (identity only, profile
+# detail omitted) is indistinguishable on the wire from a user who has genuinely left
+# those fields empty, so a client caching an embedded author would blank out detail it
+# had already loaded in full. The counts are counter-cache columns and the rest are on
+# the row, so serving everything costs no extra query.
 module UserSerializer
   module_function
 
-  def full(user, is_following:)
+  def serialize(user, is_following:)
     {
       "id" => user.id,
       "nickname" => user.nickname,
@@ -14,16 +18,6 @@ module UserSerializer
       "avatarUrl" => avatar_url(user),
       "followerCount" => user.follower_count,
       "followingCount" => user.following_count,
-      "isFollowing" => is_following
-    }
-  end
-
-  def minimal(user, is_following:)
-    {
-      "id" => user.id,
-      "handle" => user.handle,
-      "nickname" => user.nickname,
-      "avatarUrl" => avatar_url(user),
       "isFollowing" => is_following
     }
   end

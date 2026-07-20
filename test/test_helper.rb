@@ -15,6 +15,14 @@ module ActiveSupport
 end
 
 class ActionDispatch::IntegrationTest
+  # Every user projection the API serves is the same full one — there is no partial
+  # variant a client could mistake for "this user has no bio". Endpoints that embed
+  # users assert against this.
+  USER_KEYS = %w[
+    id nickname handle age gender location bio avatarUrl
+    followerCount followingCount isFollowing
+  ].sort.freeze
+
   # Default auth header for API requests; pass a different id per call as needed.
   def headers(user_id = "u1")
     { "X-User-Id" => user_id }

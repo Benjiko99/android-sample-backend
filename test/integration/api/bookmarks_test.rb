@@ -34,12 +34,12 @@ class Api::BookmarksTest < ActionDispatch::IntegrationTest
 
   # Saved posts are by arbitrary authors, so — unlike the profile's own Posts tab —
   # the client cannot supply them and the authors always ride along.
-  test "always includes the minimal authors of the page" do
+  test "always includes the authors of the page" do
     get "/api/users/u1/bookmarks", headers: headers("u1")
     included = response.parsed_body["included"]
 
     assert_equal %w[u2 u4], included["users"].map { |u| u["id"] }.sort
-    assert_equal %w[id handle nickname avatarUrl isFollowing].sort, included["users"].first.keys.sort
+    assert_equal USER_KEYS, included["users"].first.keys.sort
   end
 
   test "bookmarking a post adds it to the list and unbookmarking removes it" do

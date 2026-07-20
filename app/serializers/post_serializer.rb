@@ -8,7 +8,7 @@ module PostSerializer
 
   def full(post, is_liked:, is_bookmarked:, is_following_author:)
     base(post, is_liked:, is_bookmarked:).merge(
-      "author" => UserSerializer.full(post.author, is_following: is_following_author)
+      "author" => UserSerializer.serialize(post.author, is_following: is_following_author)
     )
   end
 

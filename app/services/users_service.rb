@@ -14,7 +14,7 @@ module UsersService
     raise ApiError::NotFound, "User '#{id}' was not found" if user.nil?
 
     is_following = ViewerFlags.following_user_ids(viewer_id, [ id ]).include?(id)
-    UserSerializer.full(user, is_following: is_following)
+    UserSerializer.serialize(user, is_following: is_following)
   end
 
   # attrs: the raw permitted body hash. Only text keys actually present are
@@ -41,7 +41,7 @@ module UsersService
     user.save!
     # id == current_user_id was already enforced above, so a user can never be
     # following themselves here.
-    UserSerializer.full(user, is_following: false)
+    UserSerializer.serialize(user, is_following: false)
   end
 
   # Toggles the current user following `target_id`, keeping the join row and
