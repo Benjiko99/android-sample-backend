@@ -21,6 +21,7 @@ Rails.application.routes.draw do
       member do
         get :profile, to: "profiles#show"
         get :posts, to: "posts#by_user"
+        get :bookmarks, to: "posts#bookmarked"
         post :follow, to: "users#toggle_follow"
       end
     end

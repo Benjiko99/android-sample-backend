@@ -82,6 +82,20 @@ module PostsService
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
+  # GET /users/:id/bookmarks — the profile's Saved tab. What a user saved is private,
+  # so the only readable list is the caller's own; anyone else is refused before the
+  # lookup, which also keeps an unknown id from distinguishing itself from a real one.
+  #
+  # The page is ordered by the *posts'* recency rather than when each was saved:
+  # post_bookmarks carries no timestamp of its own, and reusing the shared (created_at, id)
+  # keyset is worth more here than save-order would be.
+  def list_bookmarked(user_id, viewer_id, cursor_token:, limit_param:)
+    raise ApiError::Forbidden, "Bookmarks can only be read by the user who saved them" unless user_id == viewer_id
+
+    relation = Post.includes(MEDIA_INCLUDES).joins(:post_bookmarks).where(post_bookmarks: { user_id: user_id })
+    paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
+  end
+
   def toggle_like(post_id, viewer_id)
     post = Post.find_by(id: post_id)
     raise ApiError::NotFound, "Post '#{post_id}' was not found" if post.nil?
@@ -118,6 +132,16 @@ module PostsService
       )
     end
     Cursor::Page.new(items, page.page)
+  end
+
+  # Shared: minimal user projections for the distinct authors on a page of feed items.
+  # The feed offers these behind `include=author`; the bookmarks list always sends them.
+  def author_included(page, viewer_id)
+    author_ids = page.items.map { |item| item["authorId"] }.uniq
+    users = author_ids.empty? ? [] : User.where(id: author_ids).with_attached_avatar
+    following = ViewerFlags.following_user_ids(viewer_id, author_ids)
+
+    { "users" => users.map { |u| UserSerializer.minimal(u, is_following: following.include?(u.id)) } }
   end
 
   # An authored album is titled after its post — it exists to carry the post's
