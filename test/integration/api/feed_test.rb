@@ -50,7 +50,7 @@ class Api::FeedTest < ActionDispatch::IntegrationTest
     by_id = response.parsed_body["data"].index_by { |p| p["id"] }
 
     assert_equal true, by_id["p4"]["isLiked"]        # u1 liked p4
-    assert_equal false, by_id["p1"]["isLiked"]       # u1 authored p1 — a self-like is refused
+    assert_equal false, by_id["p1"]["isLiked"]       # u1 has not liked p1
     assert_equal true, by_id["p2"]["isBookmarked"]   # u1 bookmarked p2
     assert_equal %w[id title body createdAt likeCount commentCount isLiked isBookmarked album video authorId].sort,
                  by_id["p1"].keys.sort

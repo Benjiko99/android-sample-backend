@@ -104,14 +104,9 @@ module PostsService
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
-  # A like is an endorsement of someone else's post, so an author cannot like their
-  # own — the clients gray the action out, and this is what makes the rule true rather
-  # than merely displayed. It covers unliking too: with no self-like reachable, there
-  # is never one to undo.
   def toggle_like(post_id, viewer_id)
     post = Post.find_by(id: post_id)
     raise ApiError::NotFound, "Post '#{post_id}' was not found" if post.nil?
-    raise ApiError::Forbidden, "A post cannot be liked by its author" if post.author_id == viewer_id
 
     LikeToggle.call(post, join_model: PostLike, viewer_id: viewer_id, foreign_key: :post_id)
   end

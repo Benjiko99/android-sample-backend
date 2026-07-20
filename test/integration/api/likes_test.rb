@@ -55,12 +55,12 @@ class Api::LikesTest < ActionDispatch::IntegrationTest
     assert_equal %w[p3 p4], response.parsed_body["data"].map { |p| p["id"] }
   end
 
-  # A self-like is refused, so a user's own posts can never show up in their Likes tab.
-  test "a user's own posts never appear among their likes" do
-    get "/api/users/u1/likes", headers: headers("u1")
-    author_ids = response.parsed_body["data"].map { |p| p["authorId"] }
+  # A like is not restricted to other people's posts, so your own can appear in your Likes.
+  test "a user's own liked post appears among their likes" do
+    post "/api/posts/p1/like", headers: headers("u1") # u1 authored p1
 
-    assert_not_includes author_ids, "u1"
+    get "/api/users/u1/likes", headers: headers("u1")
+    assert_includes response.parsed_body["data"].map { |p| p["id"] }, "p1"
   end
 
   test "keyset pagination walks the likes without overlap" do

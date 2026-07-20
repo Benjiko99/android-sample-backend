@@ -303,22 +303,15 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "an author cannot like their own post" do
-    assert_no_difference -> { PostLike.count } do
+  test "an author can like their own post" do
+    assert_difference -> { PostLike.count } => 1 do
       post "/api/posts/p1/like", headers: headers("u1") # u1 authored p1
     end
-    assert_response :forbidden
-    assert_equal "FORBIDDEN", response.parsed_body["error"]["code"]
-
-    get "/api/posts/p1", headers: headers("u1")
-    assert_equal 128, response.parsed_body["data"]["likeCount"], "the counter must be untouched"
-  end
-
-  test "the self-like rule does not block liking someone else's post" do
-    assert_difference -> { PostLike.count } => 1 do
-      post "/api/posts/p2/like", headers: headers("u1") # u2 authored p2
-    end
     assert_response :ok
+    assert_equal({ "isLiked" => true, "likeCount" => 129 }, response.parsed_body["data"])
+
+    post "/api/posts/p1/like", headers: headers("u1")
+    assert_equal({ "isLiked" => false, "likeCount" => 128 }, response.parsed_body["data"])
   end
 
   test "like toggles on and off and adjusts the counter" do
