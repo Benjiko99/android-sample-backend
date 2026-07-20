@@ -17,6 +17,11 @@ module Api
       )
     end
 
+    def destroy
+      PostsService.delete(params[:id], current_user_id)
+      head :no_content
+    end
+
     def toggle_like
       render_data(PostsService.toggle_like(params[:id], current_user_id))
     end

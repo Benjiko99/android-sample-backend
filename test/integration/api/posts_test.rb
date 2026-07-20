@@ -224,6 +224,85 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_includes post.errors.attribute_names, :video
   end
 
+  test "DELETE /api/posts/:id removes the caller's own post" do
+    assert_difference -> { Post.count } => -1 do
+      delete "/api/posts/p1", headers: headers("u1")
+    end
+    assert_response :no_content
+
+    get "/api/posts/p1", headers: headers
+    assert_response :not_found
+  end
+
+  test "a deleted post disappears from the feed and its author's profile" do
+    delete "/api/posts/p1", headers: headers("u1")
+
+    get "/api/feed", headers: headers
+    assert_not_includes response.parsed_body["data"].map { |p| p["id"] }, "p1"
+
+    get "/api/users/u1/posts", headers: headers
+    assert_equal %w[p6], response.parsed_body["data"].map { |p| p["id"] }
+  end
+
+  test "DELETE /api/posts/:id 403s for a caller who is not the author" do
+    assert_no_difference -> { Post.count } do
+      delete "/api/posts/p1", headers: headers("u2")
+    end
+    assert_response :forbidden
+    assert_equal "FORBIDDEN", response.parsed_body["error"]["code"]
+  end
+
+  test "DELETE /api/posts/:id 404s for a missing post" do
+    delete "/api/posts/nope", headers: headers
+    assert_response :not_found
+  end
+
+  test "deleting a post takes its comments, likes and bookmarks with it" do
+    post "/api/posts/p1/bookmark", headers: headers
+    assert_operator Comment.where(post_id: "p1").count, :>, 0
+    assert_operator PostLike.where(post_id: "p1").count, :>, 0
+
+    delete "/api/posts/p1", headers: headers("u1")
+
+    assert_equal 0, Comment.where(post_id: "p1").count
+    assert_equal 0, PostLike.where(post_id: "p1").count
+    assert_equal 0, PostBookmark.where(post_id: "p1").count
+  end
+
+  test "deleting a post destroys the album it was created with" do
+    post "/api/posts",
+      params: { title: "Sketches", body: "Body",
+                images: [ fixture_file_upload("avatar.png", "image/png") ] },
+      headers: headers
+    id = response.parsed_body["data"]["id"]
+
+    assert_difference -> { Album.count } => -1, -> { Photo.count } => -1 do
+      delete "/api/posts/#{id}", headers: headers
+    end
+    assert_response :no_content
+  end
+
+  test "deleting a post destroys the video it was created with" do
+    post "/api/posts",
+      params: { title: "A clip", body: "Body", video: fixture_file_upload("clip.mp4", "video/mp4") },
+      headers: headers
+    id = response.parsed_body["data"]["id"]
+
+    assert_difference -> { Video.count } => -1 do
+      delete "/api/posts/#{id}", headers: headers
+    end
+  end
+
+  test "deleting a post leaves media another post still holds" do
+    shared = Post.find("p1").album_id
+    assert_not_nil shared
+    Post.create!(author_id: "u1", title: "Same album", body: "Body", album_id: shared)
+
+    assert_no_difference -> { Album.count } do
+      delete "/api/posts/p1", headers: headers("u1")
+    end
+  end
+
   test "like toggles on and off and adjusts the counter" do
     post "/api/posts/p2/like", headers: headers
     assert_response :ok

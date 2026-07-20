@@ -54,6 +54,28 @@ module PostsService
     PostSerializer.full(post, is_liked: false, is_bookmarked: false, is_following_author: false)
   end
 
+  # DELETE /posts/:id — removes the viewer's own post. Only the author may delete;
+  # anyone else gets a 403 rather than a 404, since the post plainly exists.
+  def delete(post_id, viewer_id)
+    post = Post.find_by(id: post_id)
+    raise ApiError::NotFound, "Post '#{post_id}' was not found" if post.nil?
+    raise ApiError::Forbidden, "A post can only be deleted by its author" unless post.author_id == viewer_id
+
+    # Comments, likes and bookmarks travel with the post through its dependent: :destroy
+    # associations. Its media does not: an Album/Video is a user-owned record a post
+    # merely points at (hence dependent: :nullify on their side), so it is destroyed
+    # only once no post still holds it — which for composer-authored media, created for
+    # this one post by #create, is immediately.
+    album = post.album
+    video = post.video
+
+    Post.transaction do
+      post.destroy!
+      album.destroy! if album && album.posts.empty?
+      video.destroy! if video && video.posts.empty?
+    end
+  end
+
   # GET /users/:id/posts — the profile's Posts tab, keyset-paginated feed items.
   def list_by_user(author_id, viewer_id, cursor_token:, limit_param:)
     relation = Post.includes(MEDIA_INCLUDES).where(author_id: author_id)

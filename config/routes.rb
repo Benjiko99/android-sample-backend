@@ -6,7 +6,7 @@ Rails.application.routes.draw do
     get "health", to: "health#show"
     get "feed", to: "feed#index"
 
-    resources :posts, only: [:show, :create] do
+    resources :posts, only: [:show, :create, :destroy] do
       member do
         post :like, to: "posts#toggle_like"
         post :bookmark, to: "posts#toggle_bookmark"
