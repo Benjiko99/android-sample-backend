@@ -49,7 +49,8 @@ class Api::FeedTest < ActionDispatch::IntegrationTest
     get "/api/feed", headers: headers("u1")
     by_id = response.parsed_body["data"].index_by { |p| p["id"] }
 
-    assert_equal true, by_id["p1"]["isLiked"]        # u1 liked p1
+    assert_equal true, by_id["p4"]["isLiked"]        # u1 liked p4
+    assert_equal false, by_id["p1"]["isLiked"]       # u1 authored p1 — a self-like is refused
     assert_equal true, by_id["p2"]["isBookmarked"]   # u1 bookmarked p2
     assert_equal %w[id title body createdAt likeCount commentCount isLiked isBookmarked album video authorId].sort,
                  by_id["p1"].keys.sort
@@ -58,7 +59,8 @@ class Api::FeedTest < ActionDispatch::IntegrationTest
   test "flags differ for a different viewer" do
     get "/api/feed", headers: headers("u2")
     by_id = response.parsed_body["data"].index_by { |p| p["id"] }
-    assert_equal false, by_id["p1"]["isLiked"]
+    assert_equal false, by_id["p4"]["isLiked"] # u1 liked p4, u2 did not
+    assert_equal true, by_id["p1"]["isLiked"]  # but u2 did like p1
   end
 
   test "keyset pagination walks the whole feed without overlap" do

@@ -123,9 +123,12 @@ module Reseed
 
   def seed_likes_and_bookmarks
     Rails.logger.info("[reseed] Seeding likes and bookmarks…")
+    # No row here may pair a user with their own post: PostsService#toggle_like refuses a
+    # self-like, so seeding one would put the app in a state its own API cannot produce.
     PostLike.create!([
-      { user_id: "u1", post_id: "p1" },
-      { user_id: "u1", post_id: "p4" }
+      { user_id: "u2", post_id: "p1" },
+      { user_id: "u1", post_id: "p4" },
+      { user_id: "u1", post_id: "p3" }
     ])
     PostBookmark.create!([
       { user_id: "u1", post_id: "p2" },

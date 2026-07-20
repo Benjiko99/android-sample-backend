@@ -22,6 +22,7 @@ Rails.application.routes.draw do
         get :profile, to: "profiles#show"
         get :posts, to: "posts#by_user"
         get :bookmarks, to: "posts#bookmarked"
+        get :likes, to: "posts#liked"
         post :follow, to: "users#toggle_follow"
       end
     end

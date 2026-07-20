@@ -89,6 +89,14 @@ module PostsService
   # The page is ordered by the *posts'* recency rather than when each was saved:
   # post_bookmarks carries no timestamp of its own, and reusing the shared (created_at, id)
   # keyset is worth more here than save-order would be.
+  # GET /users/:id/likes — the profile's Likes tab. Public, unlike the Saved tab: what
+  # someone endorsed is on show, so any caller may read anyone's. The viewer flags on the
+  # items are still the *caller's* own, which is why viewer_id stays separate from user_id.
+  def list_liked(user_id, viewer_id, cursor_token:, limit_param:)
+    relation = Post.includes(MEDIA_INCLUDES).joins(:post_likes).where(post_likes: { user_id: user_id })
+    paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
+  end
+
   def list_bookmarked(user_id, viewer_id, cursor_token:, limit_param:)
     raise ApiError::Forbidden, "Bookmarks can only be read by the user who saved them" unless user_id == viewer_id
 
@@ -96,9 +104,14 @@ module PostsService
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
+  # A like is an endorsement of someone else's post, so an author cannot like their
+  # own — the clients gray the action out, and this is what makes the rule true rather
+  # than merely displayed. It covers unliking too: with no self-like reachable, there
+  # is never one to undo.
   def toggle_like(post_id, viewer_id)
     post = Post.find_by(id: post_id)
     raise ApiError::NotFound, "Post '#{post_id}' was not found" if post.nil?
+    raise ApiError::Forbidden, "A post cannot be liked by its author" if post.author_id == viewer_id
 
     LikeToggle.call(post, join_model: PostLike, viewer_id: viewer_id, foreign_key: :post_id)
   end

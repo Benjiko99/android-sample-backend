@@ -41,6 +41,19 @@ module Api
       render_cursor(page)
     end
 
+    # GET /api/users/:id/likes — the profile's Likes tab. Public: anyone may read anyone's,
+    # which is the whole difference from #bookmarked below. Authors ride along for the same
+    # reason they do there — a liked post can be by anyone.
+    def liked
+      page = PostsService.list_liked(
+        params[:id],
+        current_user_id,
+        cursor_token: params[:cursor],
+        limit_param: params[:limit]
+      )
+      render_cursor(page, included: PostsService.author_included(page, current_user_id))
+    end
+
     # GET /api/users/:id/bookmarks — the profile's Saved tab. Bookmarks are private,
     # so this only ever answers for the caller's own id (403 otherwise). Their authors
     # are arbitrary users, so — unlike #by_user, where every post is the profile's own —
