@@ -59,6 +59,7 @@ User avatars are uploaded files (`has_one_attached :avatar`), not URL strings. K
 - `UsersController#update` accepts **multipart** with an `avatar` file field. Upload validation (content type sniffed from bytes via Marcel, size ≤ 10 MB) lives in `UsersService#attach_avatar`, **not** as a model validation — attaching to an already-persisted record saves immediately, so a `save!` validation would fire too late.
 - `UserSerializer#avatar_url` emits an absolute **proxy** URL (`rails_storage_proxy_url`) so the Android Coil loader streams bytes in one hop. Because this runs outside a request, the host comes from `config/initializers/url_options.rb` (`default_url_options`), which reads `APP_HOST`/`APP_PROTOCOL` in production.
 - Empty text fields on a multipart update clear nullable columns (`age`, `gender`, `bio`); `nickname` is required. See `UsersService::EDITABLE_KEYS`/`NULLABLE_KEYS`.
+- Post videos are uploads too, and their `duration_seconds` is **measured server-side**: `VideoDuration` (`app/services/video_duration.rb`) shells out to `ffprobe` on the tempfile before it is attached. That is the one system binary the app needs (`apt install ffmpeg`; it is in the Dockerfile and CI). Every failure — no ffprobe, unreadable container — stores 0 rather than failing the upload, so a machine without ffmpeg still serves the endpoint.
 
 ### Sample data & reseeding
 

@@ -30,9 +30,8 @@ module PostsService
 
   # POST /posts — publishes a post authored by the viewer. Media is optional and
   # exclusive: `images` become an Album, `video` becomes a Video, and sending both
-  # is rejected. `video_duration_seconds` comes from the client because extracting
-  # it server-side would mean shipping ffmpeg in the image for one metadata field.
-  def create(author_id, title, body, images: [], video: nil, video_duration_seconds: nil)
+  # is rejected.
+  def create(author_id, title, body, images: [], video: nil)
     author = User.find_by(id: author_id)
     raise ApiError::NotFound, "User '#{author_id}' was not found" if author.nil?
 
@@ -45,7 +44,7 @@ module PostsService
 
     Post.transaction do
       post.album = create_album(author, title, images) if images.any?
-      post.video = create_video(author, title, video, video_duration_seconds) if video
+      post.video = create_video(author, title, video) if video
       post.save!
     end
 
@@ -165,13 +164,14 @@ module PostsService
   end
 
   # An authored video is titled after its post, for the same reason an album is.
-  # Duration is clamped to a non-negative integer: it is display metadata the
-  # client reports about its own file, so it is sanitized rather than trusted.
-  def create_video(author, title, file, duration_seconds)
+  # Its duration is measured from the uploaded file rather than reported by the
+  # client, so it describes the bytes we actually stored. VideoDuration is read
+  # before the attach, while the upload is still a tempfile on disk.
+  def create_video(author, title, file)
     video = Video.create!(
       user: author,
       title: title,
-      duration_seconds: [ duration_seconds.to_i, 0 ].max
+      duration_seconds: VideoDuration.seconds(file)
     )
     video.file.attach(file)
 

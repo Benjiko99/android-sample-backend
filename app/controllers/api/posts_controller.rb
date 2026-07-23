@@ -11,8 +11,7 @@ module Api
           trimmed(:title),
           trimmed(:body),
           images: uploaded_images,
-          video: uploaded_video,
-          video_duration_seconds: params[:videoDurationSeconds]
+          video: uploaded_video
         )
       )
     end

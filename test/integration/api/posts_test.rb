@@ -159,15 +159,14 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_difference -> { Video.count } => 1 do
       post "/api/posts",
         params: { title: "A clip", body: "Recorded today",
-                  video: fixture_file_upload("clip.mp4", "video/mp4"),
-                  videoDurationSeconds: 42 },
+                  video: fixture_file_upload("clip.mp4", "video/mp4") },
         headers: headers
     end
     assert_response :created
     video = response.parsed_body["data"]["video"]
 
     assert_equal "A clip", video["title"]
-    assert_equal 42, video["durationSeconds"]
+    assert_equal VideoDuration.seconds(fixture_file_upload("clip.mp4", "video/mp4")), video["durationSeconds"]
     assert_match %r{\Ahttp://example\.com/.*active_storage}, video["videoUrl"]
     assert_nil response.parsed_body["data"]["album"]
   end
@@ -175,14 +174,13 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
   test "an uploaded video survives a refetch and appears in the feed" do
     post "/api/posts",
       params: { title: "A clip", body: "Body",
-                video: fixture_file_upload("clip.mp4", "video/mp4"),
-                videoDurationSeconds: 7 },
+                video: fixture_file_upload("clip.mp4", "video/mp4") },
       headers: headers
     id = response.parsed_body["data"]["id"]
 
     get "/api/posts/#{id}", headers: headers
     assert_response :ok
-    assert_equal 7, response.parsed_body["data"]["video"]["durationSeconds"]
+    assert_not_nil response.parsed_body["data"]["video"]["durationSeconds"]
 
     get "/api/feed", headers: headers
     assert_equal id, response.parsed_body["data"].first["id"]
@@ -215,18 +213,29 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_content_type", response.parsed_body["error"]["details"].first["code"]
   end
 
-  test "a missing or negative video duration is stored as zero" do
+  # The duration is measured from the file now, so a client still sending the old
+  # field gets no say in it — least of all one inflating the length it claims.
+  test "a client-reported video duration is ignored" do
     post "/api/posts",
-      params: { title: "No duration", body: "Body",
-                video: fixture_file_upload("clip.mp4", "video/mp4") },
-      headers: headers
-    assert_equal 0, response.parsed_body["data"]["video"]["durationSeconds"]
-
-    post "/api/posts",
-      params: { title: "Negative", body: "Body",
+      params: { title: "A clip", body: "Body",
                 video: fixture_file_upload("clip.mp4", "video/mp4"),
-                videoDurationSeconds: -5 },
+                videoDurationSeconds: 999 },
       headers: headers
+    assert_response :created
+    assert_equal 0, response.parsed_body["data"]["video"]["durationSeconds"]
+  end
+
+  # The fixture is a bare MP4 header with no playable stream: ffprobe reads no
+  # duration from it (nor does anything, if ffmpeg isn't installed). The post is
+  # still published — an unreadable length is not a reason to refuse an upload.
+  test "a video whose duration cannot be read is stored as zero" do
+    assert_difference -> { Video.count } => 1 do
+      post "/api/posts",
+        params: { title: "No duration", body: "Body",
+                  video: fixture_file_upload("clip.mp4", "video/mp4") },
+        headers: headers
+    end
+    assert_response :created
     assert_equal 0, response.parsed_body["data"]["video"]["durationSeconds"]
   end
 
