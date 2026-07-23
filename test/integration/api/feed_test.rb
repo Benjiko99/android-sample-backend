@@ -52,7 +52,7 @@ class Api::FeedTest < ActionDispatch::IntegrationTest
     assert_equal true, by_id["p4"]["isLiked"]        # u1 liked p4
     assert_equal false, by_id["p1"]["isLiked"]       # u1 has not liked p1
     assert_equal true, by_id["p2"]["isBookmarked"]   # u1 bookmarked p2
-    assert_equal %w[id title body createdAt likeCount commentCount isLiked isBookmarked album video authorId].sort,
+    assert_equal %w[id url title body createdAt likeCount commentCount isLiked isBookmarked album video authorId].sort,
                  by_id["p1"].keys.sort
   end
 

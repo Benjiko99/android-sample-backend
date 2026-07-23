@@ -21,6 +21,7 @@ module PostSerializer
   def base(post, is_liked:, is_bookmarked:)
     {
       "id" => post.id,
+      "url" => url(post),
       "title" => post.title,
       "body" => post.body,
       "createdAt" => post.created_at.iso8601,
@@ -31,5 +32,18 @@ module PostSerializer
       "album" => AlbumSerializer.call(post.album),
       "video" => VideoSerializer.call(post.video)
     }
+  end
+
+  # The canonical shareable link for a post — what a client hands to a share sheet or
+  # clipboard. The Android app used to build this itself by pasting an id onto a
+  # hardcoded base; serving it means the deep-link shape is ours to change without
+  # waiting on an app release.
+  #
+  # Built from the configured host rather than a route helper because nothing is
+  # mounted at /p/:id yet — this is a link format, not a page the API serves.
+  def url(post)
+    ActionDispatch::Http::URL.url_for(
+      Rails.application.routes.default_url_options.merge(path: "/p/#{post.id}")
+    )
   end
 end

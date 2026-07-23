@@ -15,6 +15,19 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_equal false, post["isLiked"], "u1 authored p1, so u1 cannot have liked it"
   end
 
+  test "every projection carries the post's shareable url" do
+    get "/api/posts/p1", headers: headers
+    assert_equal "http://example.com/p/p1", response.parsed_body["data"]["url"]
+
+    get "/api/feed", headers: headers
+    feed_item = response.parsed_body["data"].find { |p| p["id"] == "p1" }
+    assert_equal "http://example.com/p/p1", feed_item["url"]
+
+    post "/api/posts", params: { title: "T", body: "B" }, as: :json, headers: headers
+    created = response.parsed_body["data"]
+    assert_equal "http://example.com/p/#{created['id']}", created["url"]
+  end
+
   test "GET /api/posts/:id 404s for a missing post" do
     get "/api/posts/nope", headers: headers
     assert_response :not_found
