@@ -2,9 +2,21 @@
 # Android app's SampleData.kt. Ported from lib/reseed.ts. Called by db/seeds.rb
 # and by the daily midnight ReseedJob.
 module Reseed
-  SAMPLE_VIDEO_URL = "https://getsamplefiles.com/download/mp4/sample-5.mp4".freeze
-  SAMPLE_IMAGES = [
+  # One stream per video. Sharing a stream between two videos is what to avoid here: the app
+  # keys its shared player on the URL, so two videos pointing at the same file are one playback
+  # and cannot play independently.
+  IMITATION_GAME_VIDEO_URL = "https://getsamplefiles.com/download/mp4/sample-3.mp4".freeze
+  KERNEL_BOOT_VIDEO_URL = "https://getsamplefiles.com/download/mp4/sample-5.mp4".freeze
+
+  ENGINE_SKETCH_IMAGES = [
+    "https://getsamplefiles.com/download/jpg/sample-1.jpg",
     "https://getsamplefiles.com/download/jpg/sample-2.jpg",
+    "https://getsamplefiles.com/download/jpg/sample-3.jpg"
+  ].freeze
+
+  # Its own photos, and a different count from ENGINE_SKETCH_IMAGES, so the two albums are told
+  # apart at a glance and the client's pager and item-count badge see more than one length.
+  LAUNCH_ROOM_IMAGES = [
     "https://getsamplefiles.com/download/jpg/sample-4.jpg",
     "https://getsamplefiles.com/download/jpg/sample-5.jpg"
   ].freeze
@@ -72,11 +84,13 @@ module Reseed
   def seed_post_attachment_albums
     Rails.logger.info("[reseed] Seeding post attachment albums…")
     [
-      { id: "pa1", user_id: "u1", title: "Engine sketches" },
-      { id: "pa4", user_id: "u4", title: "Launch room" }
+      { id: "pa1", user_id: "u1", title: "Engine sketches", images: ENGINE_SKETCH_IMAGES },
+      { id: "pa4", user_id: "u4", title: "Launch room", images: LAUNCH_ROOM_IMAGES }
     ].each do |attrs|
-      album = Album.create!(attrs.merge(item_count: SAMPLE_IMAGES.length))
-      SAMPLE_IMAGES.each_with_index do |url, i|
+      images = attrs[:images]
+
+      album = Album.create!(attrs.except(:images).merge(item_count: images.length))
+      images.each_with_index do |url, i|
         album.photos.create!(url: url, position: i)
       end
     end
@@ -85,8 +99,8 @@ module Reseed
   def seed_post_attachment_videos
     Rails.logger.info("[reseed] Seeding post attachment videos…")
     Video.create!([
-      { id: "pv3", user_id: "u3", title: "The imitation game, in five seconds", url: SAMPLE_VIDEO_URL, duration_seconds: 5 },
-      { id: "pv5", user_id: "u5", title: "Booting the kernel", url: SAMPLE_VIDEO_URL, duration_seconds: 5 }
+      { id: "pv3", user_id: "u3", title: "The imitation game, in five seconds", url: IMITATION_GAME_VIDEO_URL, duration_seconds: 5 },
+      { id: "pv5", user_id: "u5", title: "Booting the kernel", url: KERNEL_BOOT_VIDEO_URL, duration_seconds: 5 }
     ])
   end
 
