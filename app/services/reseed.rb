@@ -4,8 +4,10 @@
 module Reseed
   # One stream per video. Sharing a stream between two videos is what to avoid here: the app
   # keys its shared player on the URL, so two videos pointing at the same file are one playback
-  # and cannot play independently.
-  IMITATION_GAME_VIDEO_URL = "https://getsamplefiles.com/download/mp4/sample-3.mp4".freeze
+  # and cannot play independently. They have to *look* different too — the host's sample-3.mp4
+  # and sample-5.mp4 are the same clip under two names, which leaves a playback bug
+  # indistinguishable from correct behaviour.
+  IMITATION_GAME_VIDEO_URL = "https://getsamplefiles.com/download/mp4/sample-2.mp4".freeze
   KERNEL_BOOT_VIDEO_URL = "https://getsamplefiles.com/download/mp4/sample-5.mp4".freeze
 
   ENGINE_SKETCH_IMAGES = [
