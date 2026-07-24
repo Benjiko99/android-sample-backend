@@ -6,8 +6,10 @@ application up and running.
 ## System dependencies
 
 **ffmpeg**, for local development only — the Docker image and CI install it
-themselves. `VideoDuration` reads the length of an uploaded video with `ffprobe`;
-without it a video post still publishes, but its duration is stored as 0.
+themselves. `VideoMetadata` reads an uploaded video's length and resolution with
+`ffprobe`, and `VideoThumbnail` extracts a poster frame with `ffmpeg`; without it
+a video post still publishes, but its duration is stored as 0, its resolution as
+null, and it gets no thumbnail.
 
 ```bash
 sudo apt install ffmpeg

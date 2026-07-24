@@ -3,8 +3,11 @@ class Video < ApplicationRecord
   include ServesAttachedFile
   self.id_prefix = "v"
 
-  # Seed rows carry an external `url`; client uploads carry these bytes.
+  # Seed rows carry an external `url`; client uploads carry these bytes. The
+  # thumbnail takes the same split: a `thumbnail_url` for seed data, or a
+  # server-generated JPEG attachment (VideoThumbnail) for uploads.
   serves_attached :file
+  serves_attached :thumbnail, fallback: :thumbnail_url, as: :thumbnail_display_url
 
   belongs_to :user
   has_many :posts, dependent: :nullify

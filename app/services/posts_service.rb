@@ -5,7 +5,7 @@ module PostsService
   # touches the attachment on every one. Shared with FeedService so the feed and
   # the detail/profile paths can't drift apart.
   MEDIA_INCLUDES = {
-    video: { file_attachment: :blob },
+    video: [ { file_attachment: :blob }, { thumbnail_attachment: :blob } ],
     album: { photos: { image_attachment: :blob } }
   }.freeze
 
@@ -164,18 +164,44 @@ module PostsService
   end
 
   # An authored video is titled after its post, for the same reason an album is.
-  # Its duration is measured from the uploaded file rather than reported by the
-  # client, so it describes the bytes we actually stored. VideoDuration is read
-  # before the attach, while the upload is still a tempfile on disk.
+  # Its duration and resolution are measured from the uploaded file rather than
+  # reported by the client, so they describe the bytes we actually stored.
+  # VideoMetadata is read before the attach, while the upload is still a tempfile
+  # on disk; a poster frame is then extracted from the same tempfile.
   def create_video(author, title, file)
+    metadata = VideoMetadata.extract(file)
     video = Video.create!(
       user: author,
       title: title,
-      duration_seconds: VideoDuration.seconds(file)
+      duration_seconds: metadata.duration_seconds,
+      width: metadata.width,
+      height: metadata.height
     )
     video.file.attach(file)
+    attach_thumbnail(video, file, metadata)
 
     video
+  end
+
+  # Extracts a poster frame from the middle of the clip and attaches it, recording
+  # its dimensions. A thumbnail is best-effort display metadata: if none could be
+  # produced (no ffmpeg, an unreadable stream, an unknown resolution), the video
+  # is left without one rather than failing the upload.
+  def attach_thumbnail(video, file, metadata)
+    thumbnail = VideoThumbnail.generate(
+      file,
+      width: metadata.width,
+      height: metadata.height,
+      at_seconds: metadata.duration_seconds / 2.0
+    )
+    return unless thumbnail
+
+    video.thumbnail.attach(
+      io: thumbnail.io, filename: "#{video.id}-thumbnail.jpg", content_type: "image/jpeg"
+    )
+    video.update!(thumbnail_width: thumbnail.width, thumbnail_height: thumbnail.height)
+  ensure
+    thumbnail&.io&.close!
   end
 
   # Media is exclusive, and every uploaded file is checked before anything is

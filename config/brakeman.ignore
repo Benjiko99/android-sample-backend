@@ -1,0 +1,28 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "Command Injection",
+      "warning_code": 14,
+      "fingerprint": "d0ced3494cacedfa5dc93d18771facdb348f39f511221c1b7cd7b54acf76c345",
+      "check_name": "Execute",
+      "message": "Possible command injection",
+      "file": "app/services/video_thumbnail.rb",
+      "line": 70,
+      "link": "https://brakemanscanner.org/docs/warning_types/command_injection/",
+      "code": "Open3.capture3(\"ffmpeg\", \"-y\", \"-ss\", format(\"%.3f\", at_seconds), \"-i\", input, \"-frames:v\", \"1\", \"-vf\", \"scale=#{width}:#{height}\", \"-q:v\", 5.to_s, output)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "VideoThumbnail",
+        "method": "run"
+      },
+      "user_input": "width",
+      "confidence": "Medium",
+      "cwe_id": [
+        77
+      ],
+      "note": "False positive. Open3.capture3 is called with positional arguments, so ffmpeg is exec'd directly with no shell to inject into. The flagged interpolation, scale=#{width}:#{height}, uses only integers returned by VideoThumbnail.scaled_dimensions (each .round-ed) computed from the video's ffprobe-read resolution, never client-supplied text."
+    }
+  ],
+  "brakeman_version": "8.0.5"
+}

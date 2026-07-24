@@ -10,6 +10,12 @@ module Reseed
   IMITATION_GAME_VIDEO_URL = "https://getsamplefiles.com/download/mp4/sample-2.mp4".freeze
   KERNEL_BOOT_VIDEO_URL = "https://getsamplefiles.com/download/mp4/sample-5.mp4".freeze
 
+  # Sample videos are external, so their poster frames are too — an uploaded clip
+  # gets one generated server-side (VideoThumbnail) instead. The resolutions are
+  # fixed sample values, like the durations above them.
+  IMITATION_GAME_THUMBNAIL_URL = "https://getsamplefiles.com/download/jpg/sample-1.jpg".freeze
+  KERNEL_BOOT_THUMBNAIL_URL = "https://getsamplefiles.com/download/jpg/sample-4.jpg".freeze
+
   ENGINE_SKETCH_IMAGES = [
     "https://getsamplefiles.com/download/jpg/sample-1.jpg",
     "https://getsamplefiles.com/download/jpg/sample-2.jpg",
@@ -44,7 +50,10 @@ module Reseed
     # avatars and to the photos of client-authored albums alike.
     User.find_each { |user| user.avatar.purge if user.avatar.attached? }
     Photo.find_each { |photo| photo.image.purge if photo.image.attached? }
-    Video.find_each { |video| video.file.purge if video.file.attached? }
+    Video.find_each do |video|
+      video.file.purge if video.file.attached?
+      video.thumbnail.purge if video.thumbnail.attached?
+    end
 
     CommentLike.delete_all
     Comment.delete_all
@@ -101,8 +110,12 @@ module Reseed
   def seed_post_attachment_videos
     Rails.logger.info("[reseed] Seeding post attachment videos…")
     Video.create!([
-      { id: "pv3", user_id: "u3", title: "The imitation game, in five seconds", url: IMITATION_GAME_VIDEO_URL, duration_seconds: 5 },
-      { id: "pv5", user_id: "u5", title: "Booting the kernel", url: KERNEL_BOOT_VIDEO_URL, duration_seconds: 5 }
+      { id: "pv3", user_id: "u3", title: "The imitation game, in five seconds",
+        url: IMITATION_GAME_VIDEO_URL, duration_seconds: 5, width: 1280, height: 720,
+        thumbnail_url: IMITATION_GAME_THUMBNAIL_URL, thumbnail_width: 640, thumbnail_height: 360 },
+      { id: "pv5", user_id: "u5", title: "Booting the kernel",
+        url: KERNEL_BOOT_VIDEO_URL, duration_seconds: 5, width: 1920, height: 1080,
+        thumbnail_url: KERNEL_BOOT_THUMBNAIL_URL, thumbnail_width: 640, thumbnail_height: 360 }
     ])
   end
 

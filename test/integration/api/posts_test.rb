@@ -166,9 +166,41 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     video = response.parsed_body["data"]["video"]
 
     assert_equal "A clip", video["title"]
-    assert_equal VideoDuration.seconds(fixture_file_upload("clip.mp4", "video/mp4")), video["durationSeconds"]
+    assert_equal VideoMetadata.extract(fixture_file_upload("clip.mp4", "video/mp4")).duration_seconds, video["durationSeconds"]
     assert_match %r{\Ahttp://example\.com/.*active_storage}, video["videoUrl"]
     assert_nil response.parsed_body["data"]["album"]
+  end
+
+  # A sample video is external, so it carries a poster frame and resolution as
+  # fixed sample values rather than measured ones.
+  test "a seed video serves a thumbnail url and resolution" do
+    get "/api/posts/p3", headers: headers
+    assert_response :ok
+    video = response.parsed_body["data"]["video"]
+
+    assert_equal 1280, video["width"]
+    assert_equal 720, video["height"]
+    assert_match %r{\Ahttps://.*\.jpg\z}, video["thumbnailUrl"]
+    assert_equal 640, video["thumbnailWidth"]
+    assert_equal 360, video["thumbnailHeight"]
+  end
+
+  # The fixture is a bare MP4 header: its resolution cannot be read and no poster
+  # frame can be extracted (nor can anything, without ffmpeg). Rather than fail
+  # the upload, the video publishes with a null resolution and no thumbnail.
+  test "a video whose resolution cannot be read has a null resolution and no thumbnail" do
+    post "/api/posts",
+      params: { title: "No resolution", body: "Body",
+                video: fixture_file_upload("clip.mp4", "video/mp4") },
+      headers: headers
+    assert_response :created
+    video = response.parsed_body["data"]["video"]
+
+    assert_nil video["width"]
+    assert_nil video["height"]
+    assert_nil video["thumbnailUrl"]
+    assert_nil video["thumbnailWidth"]
+    assert_nil video["thumbnailHeight"]
   end
 
   test "an uploaded video survives a refetch and appears in the feed" do
