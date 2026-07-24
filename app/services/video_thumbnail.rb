@@ -17,14 +17,21 @@ module VideoThumbnail
   MAX_EDGE = 720          # longest side of the produced JPEG, in pixels
   QUALITY = 5             # ffmpeg -q:v: 2 (best) … 31 (worst); sharp but compressed
 
-  # An open, rewound JPEG ready to attach, alongside its exact dimensions.
-  Thumbnail = Struct.new(:io, :width, :height, keyword_init: true)
+  # The JPEG itself, alongside its exact dimensions.
+  #
+  # The frame is handed over as *bytes* rather than an open file, and deliberately:
+  # Active Storage defers a blob's upload to an after_commit callback, so an
+  # attachment made inside a transaction is read only once that transaction
+  # commits — well after this module has returned and cleaned up. A file handle
+  # cannot be given a lifetime that spans that without leaking it; a String can.
+  # One capped, compressed frame is small enough to hold. (An open Tempfile here
+  # is what made every video upload 500 with "IOError: closed stream".)
+  Thumbnail = Struct.new(:bytes, :width, :height, keyword_init: true)
 
   module_function
 
-  # Extracts the frame at `at_seconds` from the still-untached upload (a tempfile
-  # on disk) and returns a Thumbnail, or nil if none could be produced. The
-  # caller owns the returned io and must close it once attached.
+  # Extracts the frame at `at_seconds` from the still-unattached upload (a tempfile
+  # on disk) and returns a Thumbnail, or nil if none could be produced.
   #
   # width/height are the source video's dimensions; without them the target size
   # is unknown, so there is nothing to scale to and no thumbnail is made.
@@ -34,13 +41,21 @@ module VideoThumbnail
     target_width, target_height = scaled_dimensions(width, height)
     output = Tempfile.new(%w[video-thumbnail .jpg], binmode: true)
 
-    unless run(file.tempfile.path, output.path, at_seconds:, width: target_width, height: target_height)
-      output.close!
-      return nil
-    end
+    begin
+      produced = run(
+        file.tempfile.path, output.path,
+        at_seconds: at_seconds, width: target_width, height: target_height
+      )
+      return nil unless produced
 
-    output.rewind
-    Thumbnail.new(io: output, width: target_width, height: target_height)
+      # ffmpeg can exit cleanly having written nothing; an empty frame is no frame.
+      bytes = File.binread(output.path)
+      return nil if bytes.empty?
+
+      Thumbnail.new(bytes: bytes, width: target_width, height: target_height)
+    ensure
+      output.close!
+    end
   end
 
   # Scales (width, height) down so the longest edge is at most MAX_EDGE, keeping

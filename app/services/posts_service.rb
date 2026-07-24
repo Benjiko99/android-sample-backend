@@ -178,30 +178,37 @@ module PostsService
       height: metadata.height
     )
     video.file.attach(file)
-    attach_thumbnail(video, file, metadata)
+    attach_thumbnail(video, extract_thumbnail(file, metadata))
 
     video
   end
 
-  # Extracts a poster frame from the middle of the clip and attaches it, recording
-  # its dimensions. A thumbnail is best-effort display metadata: if none could be
-  # produced (no ffmpeg, an unreadable stream, an unknown resolution), the video
-  # is left without one rather than failing the upload.
-  def attach_thumbnail(video, file, metadata)
-    thumbnail = VideoThumbnail.generate(
+  # The poster frame for a clip, taken from its midpoint, or nil when none could be
+  # produced (no ffmpeg, an unreadable stream, an unknown resolution).
+  def extract_thumbnail(file, metadata)
+    VideoThumbnail.generate(
       file,
       width: metadata.width,
       height: metadata.height,
       at_seconds: metadata.duration_seconds / 2.0
     )
+  end
+
+  # Attaches an already-extracted poster frame and records its dimensions. A
+  # thumbnail is best-effort display metadata, so a video without one is left as it
+  # is rather than failing the upload.
+  def attach_thumbnail(video, thumbnail)
     return unless thumbnail
 
+    # StringIO, not a file: this attach happens inside the transaction above, and
+    # Active Storage only uploads the bytes once that commits — by which point any
+    # file handle opened for the frame is long closed. See VideoThumbnail::Thumbnail.
     video.thumbnail.attach(
-      io: thumbnail.io, filename: "#{video.id}-thumbnail.jpg", content_type: "image/jpeg"
+      io: StringIO.new(thumbnail.bytes),
+      filename: "#{video.id}-thumbnail.jpg",
+      content_type: "image/jpeg"
     )
     video.update!(thumbnail_width: thumbnail.width, thumbnail_height: thumbnail.height)
-  ensure
-    thumbnail&.io&.close!
   end
 
   # Media is exclusive, and every uploaded file is checked before anything is

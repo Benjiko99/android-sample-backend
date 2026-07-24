@@ -27,4 +27,14 @@ class VideoThumbnailTest < ActiveSupport::TestCase
     # it ever reads the file — hence no upload is needed to exercise this.
     assert_nil VideoThumbnail.generate(nil, width: nil, height: nil, at_seconds: 0.0)
   end
+
+  # The frame is carried as bytes rather than an open file on purpose: it is attached
+  # inside a transaction, and Active Storage does not read a blob until that commits,
+  # by which point any handle opened here would be closed. See PostsService.
+  test "a thumbnail carries bytes, so it outlives the file it was read from" do
+    thumbnail = VideoThumbnail::Thumbnail.new(bytes: "jpeg-bytes", width: 640, height: 360)
+
+    assert_equal "jpeg-bytes", thumbnail.bytes
+    assert_not thumbnail.respond_to?(:io), "a thumbnail must not hand out a file handle"
+  end
 end

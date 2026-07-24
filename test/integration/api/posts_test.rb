@@ -3,6 +3,24 @@ require "test_helper"
 class Api::PostsTest < ActionDispatch::IntegrationTest
   setup { Reseed.call }
 
+  # Active Storage defers a blob's *bytes* to an after_commit callback, so an attach
+  # made inside PostsService's transaction is read only once that commits — after the
+  # code that produced the frame has returned and cleaned up. Handing the frame over
+  # as an open file therefore uploaded a closed stream and 500'd every video upload;
+  # this pins that what is attached outlives the call that attached it.
+  test "a thumbnail attached inside a transaction is uploaded when it commits" do
+    video = Video.create!(user_id: "u1", title: "A clip", duration_seconds: 0)
+    bytes = file_fixture("avatar.png").binread
+    thumbnail = VideoThumbnail::Thumbnail.new(bytes: bytes, width: 640, height: 360)
+
+    Post.transaction { PostsService.attach_thumbnail(video, thumbnail) }
+
+    assert video.reload.thumbnail.attached?, "the poster frame should be attached"
+    assert_equal bytes, video.thumbnail.blob.download, "the stored bytes should be the generated ones"
+    assert_equal 640, video.thumbnail_width
+    assert_equal 360, video.thumbnail_height
+  end
+
   test "GET /api/posts/:id returns a full post with embedded author" do
     get "/api/posts/p1", headers: headers
     assert_response :ok
