@@ -10,6 +10,7 @@ Rails.application.routes.draw do
       member do
         post :like, to: "posts#toggle_like"
         post :bookmark, to: "posts#toggle_bookmark"
+        post :report, to: "posts#report"
       end
 
       resources :comments, only: [:index, :create] do

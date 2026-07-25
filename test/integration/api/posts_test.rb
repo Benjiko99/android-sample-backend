@@ -402,6 +402,64 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_equal({ "isBookmarked" => false }, response.parsed_body["data"])
   end
 
+  # Reporting is accepted and checked, then dropped: there is no moderation queue behind
+  # it, so the endpoint's whole contract is the validation and the 204.
+  test "POST /api/posts/:id/report accepts a report and stores nothing" do
+    assert_no_difference -> { Post.count } do
+      post "/api/posts/p1/report",
+        params: { reason: "spam", details: "  Posted this five times  " },
+        as: :json,
+        headers: headers("u2")
+    end
+    assert_response :no_content
+    assert_predicate response.body, :empty?
+  end
+
+  test "POST /api/posts/:id/report accepts a report with no details" do
+    post "/api/posts/p1/report", params: { reason: "other" }, as: :json, headers: headers("u2")
+    assert_response :no_content
+  end
+
+  test "POST /api/posts/:id/report accepts every reason the client offers" do
+    PostsService::REPORT_REASONS.each do |reason|
+      post "/api/posts/p1/report", params: { reason: reason }, as: :json, headers: headers("u2")
+      assert_response :no_content, "'#{reason}' should be a reportable reason"
+    end
+  end
+
+  test "POST /api/posts/:id/report rejects an unknown reason with 422" do
+    post "/api/posts/p1/report", params: { reason: "boring" }, as: :json, headers: headers("u2")
+    assert_response :unprocessable_entity
+
+    detail = response.parsed_body["error"]["details"].first
+    assert_equal "reason", detail["path"]
+    assert_equal "invalid_enum_value", detail["code"]
+  end
+
+  test "POST /api/posts/:id/report rejects a missing reason with 422" do
+    post "/api/posts/p1/report", params: {}, as: :json, headers: headers("u2")
+    assert_response :unprocessable_entity
+    assert_equal "reason", response.parsed_body["error"]["details"].first["path"]
+  end
+
+  test "POST /api/posts/:id/report rejects over-long details with 422" do
+    post "/api/posts/p1/report",
+      params: { reason: "spam", details: "x" * (PostsService::REPORT_DETAILS_MAX_LENGTH + 1) },
+      as: :json,
+      headers: headers("u2")
+    assert_response :unprocessable_entity
+
+    detail = response.parsed_body["error"]["details"].first
+    assert_equal "details", detail["path"]
+    assert_equal "too_long", detail["code"]
+  end
+
+  test "POST /api/posts/:id/report 404s for a missing post" do
+    post "/api/posts/nope/report", params: { reason: "spam" }, as: :json, headers: headers("u2")
+    assert_response :not_found
+    assert_equal "NOT_FOUND", response.parsed_body["error"]["code"]
+  end
+
   test "GET /api/users/:id/posts returns the author's posts, newest first" do
     get "/api/users/u1/posts", headers: headers
     assert_response :ok

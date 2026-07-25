@@ -9,6 +9,13 @@ module PostsService
     album: { photos: { image_attachment: :blob } }
   }.freeze
 
+  # The reasons a post may be reported for, mirroring the client's ReportReason enum.
+  # Adding one means adding it there too — an unknown reason is refused, not stored.
+  REPORT_REASONS = %w[spam harassment hate_speech misinformation violence other].freeze
+
+  # The free-text field of a report is a sentence or two of context, not an essay.
+  REPORT_DETAILS_MAX_LENGTH = 1000
+
   module_function
 
   # GET /posts/:id — full post with embedded author.
@@ -122,6 +129,44 @@ module PostsService
       PostBookmark.create!(user_id: viewer_id, post_id: post_id)
       { "isBookmarked" => true }
     end
+  end
+
+  # POST /posts/:id/report — takes a report of someone's post and deliberately keeps none
+  # of it. There is no moderation queue in this sample, so the endpoint exists to answer
+  # the client honestly: the post has to exist and the reason has to be one we recognize,
+  # and past those checks the report is logged and dropped. Anyone may report anything,
+  # including their own post — a report is a message about a post, not a claim on it.
+  def report(post_id, reporter_id, reason:, details: nil)
+    post = Post.find_by(id: post_id)
+    raise ApiError::NotFound, "Post '#{post_id}' was not found" if post.nil?
+
+    validate_report!(reason, details)
+
+    Rails.logger.info(
+      "[report] post=#{post.id} reporter=#{reporter_id} reason=#{reason} " \
+      "details=#{details.presence ? "#{details.to_s.length} chars" : "none"}"
+    )
+    nil
+  end
+
+  # A report's reason must be one of the offered ones — a client sending anything else has
+  # drifted from this list, and a report we cannot name is worse than no report. The details
+  # are optional; only their length is ours to police.
+  def validate_report!(reason, details)
+    unless REPORT_REASONS.include?(reason)
+      expected = REPORT_REASONS.map { |r| "'#{r}'" }.join(" | ")
+      raise ApiError::Validation.for(
+        path: "reason", code: "invalid_enum_value",
+        message: "Invalid option: expected #{expected}"
+      )
+    end
+
+    return if details.to_s.length <= REPORT_DETAILS_MAX_LENGTH
+
+    raise ApiError::Validation.for(
+      path: "details", code: "too_long",
+      message: "Details can be at most #{REPORT_DETAILS_MAX_LENGTH} characters"
+    )
   end
 
   # Shared: paginate a post relation and serialize as feed items with viewer flags.

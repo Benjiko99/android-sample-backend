@@ -29,6 +29,19 @@ module Api
       render_data(PostsService.toggle_bookmark(params[:id], current_user_id))
     end
 
+    # POST /api/posts/:id/report — body: { "reason": "spam", "details"?: "..." }. Nothing is
+    # stored, so there is nothing to render either; a report is acknowledged the way a
+    # deletion is, with an empty 204.
+    def report
+      PostsService.report(
+        params[:id],
+        current_user_id,
+        reason: params[:reason],
+        details: trimmed(:details)
+      )
+      head :no_content
+    end
+
     # GET /api/users/:id/posts
     def by_user
       page = PostsService.list_by_user(
