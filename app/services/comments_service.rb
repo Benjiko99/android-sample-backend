@@ -22,16 +22,28 @@ module CommentsService
     Cursor::Page.new(items, page.page)
   end
 
-  # POST /posts/:id/comments — creates a comment and bumps the post's counter.
+  # The number of comments on each of `post_ids`, defaulting to 0 for a post with none.
+  #
+  # A post's commentCount is *derived* rather than stored. It used to be a posts.comment_count
+  # column bumped by hand on every create — a second copy of a number the comments table
+  # already held, and the copy drifted: seeded posts claimed counts that no comment row
+  # backed. Counting the rows cannot drift, and this exists only to do it for a whole page in
+  # one grouped query — the batching ViewerFlags does for the viewer's flags, for the same
+  # N+1 reason. A single post just asks its association (`post.comments.count`).
+  def counts_by_post(post_ids)
+    counts = Hash.new(0)
+    return counts if post_ids.empty?
+
+    counts.merge!(Comment.where(post_id: post_ids).group(:post_id).count)
+  end
+
+  # POST /posts/:id/comments — creates a comment on an existing post. Nothing else is
+  # written: the post's count is read from the comments, so the new row *is* the update.
   def create(post_id, author_id, text)
     post = Post.find_by(id: post_id)
     raise ApiError::NotFound, "Post '#{post_id}' was not found" if post.nil?
 
-    comment = ActiveRecord::Base.transaction do
-      c = Comment.create!(post_id: post_id, author_id: author_id, text: text)
-      post.increment!(:comment_count)
-      c
-    end
+    comment = Comment.create!(post_id: post_id, author_id: author_id, text: text)
     # A freshly created comment is never liked by, or following, its own author.
     CommentSerializer.call(comment, is_liked: false, is_following_author: false)
   end

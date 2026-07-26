@@ -31,7 +31,8 @@ module PostsService
       post,
       is_liked: liked.include?(post.id),
       is_bookmarked: bookmarked.include?(post.id),
-      is_following_author: following_author.include?(post.author_id)
+      is_following_author: following_author.include?(post.author_id),
+      comment_count: post.comments.count
     )
   end
 
@@ -56,8 +57,15 @@ module PostsService
     end
 
     # A freshly created post is never liked or bookmarked by, nor is its author followed
-    # by, the viewer — the viewer *is* the author.
-    PostSerializer.full(post, is_liked: false, is_bookmarked: false, is_following_author: false)
+    # by, the viewer — the viewer *is* the author — and nobody has commented on a post
+    # that did not exist a moment ago.
+    PostSerializer.full(
+      post,
+      is_liked: false,
+      is_bookmarked: false,
+      is_following_author: false,
+      comment_count: 0
+    )
   end
 
   # DELETE /posts/:id — removes the viewer's own post. Only the author may delete;
@@ -175,12 +183,14 @@ module PostsService
     ids = page.items.map(&:id)
     liked = ViewerFlags.liked_post_ids(viewer_id, ids)
     bookmarked = ViewerFlags.bookmarked_post_ids(viewer_id, ids)
+    comment_counts = CommentsService.counts_by_post(ids)
 
     items = page.items.map do |post|
       PostSerializer.feed_item(
         post,
         is_liked: liked.include?(post.id),
-        is_bookmarked: bookmarked.include?(post.id)
+        is_bookmarked: bookmarked.include?(post.id),
+        comment_count: comment_counts[post.id]
       )
     end
     Cursor::Page.new(items, page.page)

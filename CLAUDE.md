@@ -52,6 +52,7 @@ routes (config/routes.rb, all under /api)
 - **Viewer-scoped flags** (`isLiked`/`isBookmarked`) are resolved **once per page** via `ViewerFlags` (batched `pluck` → `Set`) to avoid N+1. When adding a per-viewer boolean, follow this pattern rather than per-row queries.
 - **String primary keys.** All domain tables use opaque string ids, not integers. `GeneratesStringId` (`app/models/concerns/generates_string_id.rb`) assigns `"<id_prefix><random>"` on create when no id is supplied; each model sets its own `id_prefix` (`"p"` posts, `"c"` comments…). Seed rows carry fixed ids like `"p1"`. Treat ids as opaque.
 - **Like/counter consistency.** `LikeToggle.call` toggles the join row and the owner's `like_count` in one transaction. Reuse it for any new likeable resource.
+- **`commentCount` is derived, not stored.** There is no `posts.comment_count` column: `PostSerializer` takes the number as an argument, and a page of posts resolves it in one grouped query via `CommentsService.counts_by_post` (batched exactly like `ViewerFlags`), while a single post asks `post.comments.count`. The column existed and drifted — seed posts claimed 17, 51 and 612 comments against threads holding two or three — which is why counting the rows won over maintaining a copy of the number. A serializer reaching for `post.comments.count` itself would be an invisible N+1, so keep passing it in. Note the asymmetry with `like_count` above, which is still a stored counter.
 
 ### Avatars / Active Storage
 

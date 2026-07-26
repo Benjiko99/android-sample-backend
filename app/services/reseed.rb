@@ -131,22 +131,22 @@ module Reseed
     Post.create!([
       { id: "p1", author_id: "u1", title: "The engine weaves algebraic patterns",
         body: "Just like the Jacquard loom weaves flowers and leaves. A machine need not be limited to numbers — give it the right notation and it can compose.",
-        created_at: p1_at, updated_at: p1_at, like_count: 128, comment_count: 17, album_id: "pa1" },
+        created_at: p1_at, updated_at: p1_at, like_count: 128, album_id: "pa1" },
       { id: "p2", author_id: "u2", title: "Found the bug",
         body: "It was an actual moth, taped into the logbook at 15:45. First recorded case of debugging being literal. Onward to the next nanosecond.",
-        created_at: p2_at, updated_at: p2_at, like_count: 342, comment_count: 51 },
+        created_at: p2_at, updated_at: p2_at, like_count: 342 },
       { id: "p3", author_id: "u3", title: "Can machines think?",
         body: "The question is too meaningless to deserve discussion. So replace it: can a machine play the imitation game well enough that you can't tell?",
-        created_at: p3_at, updated_at: p3_at, like_count: 891, comment_count: 203, video_id: "pv3" },
+        created_at: p3_at, updated_at: p3_at, like_count: 891, video_id: "pv3" },
       { id: "p4", author_id: "u4", title: "Priority scheduling saved the landing",
         body: "Three minutes before touchdown the computer flashed a 1202 alarm. Because we designed it to shed low-priority work under overload, it kept the essentials running. Apollo 11 landed anyway.",
-        created_at: p4_at, updated_at: p4_at, like_count: 1543, comment_count: 88, album_id: "pa4" },
+        created_at: p4_at, updated_at: p4_at, like_count: 1543, album_id: "pa4" },
       { id: "p5", author_id: "u5", title: "Just a hobby, won't be big",
         body: "I'm doing a (free) operating system — nothing professional like GNU — for 386(486) AT clones. It probably never will support anything other than AT hard disks, as that's all I have. :)",
-        created_at: p5_at, updated_at: p5_at, like_count: 5200, comment_count: 612, video_id: "pv5" },
+        created_at: p5_at, updated_at: p5_at, like_count: 5200, video_id: "pv5" },
       { id: "p6", author_id: "u1", title: "On numbers and music",
         body: "Supposing the relations of pitched sounds could be expressed by the engine, it might compose elaborate pieces of music of any degree of complexity.",
-        created_at: p6_at, updated_at: p6_at, like_count: 64, comment_count: 5 }
+        created_at: p6_at, updated_at: p6_at, like_count: 64 }
     ])
   end
 
@@ -163,6 +163,11 @@ module Reseed
     ])
   end
 
+  # These rows *are* each post's commentCount — it is counted from them rather than stored, so
+  # a post shows the number of comments a reader can actually scroll to. The seeded posts used
+  # to carry a comment_count of their own (17, 51, 203…) that no comment here backed, which is
+  # the drift that retired the column. like_count is still a stored counter, so it keeps its
+  # seeded value and does not agree with the handful of PostLike rows below.
   def seed_comments
     Rails.logger.info("[reseed] Seeding comments…")
     Comment.create!([
