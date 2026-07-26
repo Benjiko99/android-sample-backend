@@ -118,25 +118,29 @@ module PostsService
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
-  def toggle_like(post_id, viewer_id)
+  # PUT /posts/:id/like — body: { "liked": true|false }. The request names the state it
+  # wants, so repeating it is harmless; see LikeState for why that matters.
+  def set_like(post_id, viewer_id, liked:)
     post = Post.find_by(id: post_id)
     raise ApiError::NotFound, "Post '#{post_id}' was not found" if post.nil?
 
-    LikeToggle.call(post, join_model: PostLike, viewer_id: viewer_id, foreign_key: :post_id)
+    LikeState.set(post, join_model: PostLike, viewer_id: viewer_id, foreign_key: :post_id, liked: liked)
   end
 
-  def toggle_bookmark(post_id, viewer_id)
+  # PUT /posts/:id/bookmark — body: { "bookmarked": true|false }. Idempotent for the same
+  # reason #set_like is; there is no counter to keep in step, so it needs no transaction.
+  def set_bookmark(post_id, viewer_id, bookmarked:)
     post = Post.find_by(id: post_id)
     raise ApiError::NotFound, "Post '#{post_id}' was not found" if post.nil?
 
     existing = PostBookmark.find_by(user_id: viewer_id, post_id: post_id)
-    if existing
-      existing.destroy!
-      { "isBookmarked" => false }
-    else
+    if bookmarked && existing.nil?
       PostBookmark.create!(user_id: viewer_id, post_id: post_id)
-      { "isBookmarked" => true }
+    elsif !bookmarked && existing
+      existing.destroy!
     end
+
+    { "isBookmarked" => bookmarked }
   end
 
   # POST /posts/:id/report — takes a report of someone's post and deliberately keeps none

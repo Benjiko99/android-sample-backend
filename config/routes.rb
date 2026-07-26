@@ -8,13 +8,14 @@ Rails.application.routes.draw do
 
     resources :posts, only: [:show, :create, :destroy] do
       member do
-        post :like, to: "posts#toggle_like"
-        post :bookmark, to: "posts#toggle_bookmark"
+        # PUT, not POST: these set a state rather than flipping one, so a retry is a no-op.
+        put :like, to: "posts#set_like"
+        put :bookmark, to: "posts#set_bookmark"
         post :report, to: "posts#report"
       end
 
       resources :comments, only: [:index, :create] do
-        post :like, on: :member, to: "comments#toggle_like"
+        put :like, on: :member, to: "comments#set_like"
       end
     end
 

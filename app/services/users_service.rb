@@ -45,7 +45,7 @@ module UsersService
   end
 
   # Toggles the current user following `target_id`, keeping the join row and
-  # both users' counters consistent in one transaction (mirrors LikeToggle).
+  # both users' counters consistent in one transaction (mirrors LikeState).
   def toggle_follow(target_id, viewer_id)
     raise ApiError::Forbidden, "You cannot follow yourself" if target_id == viewer_id
 

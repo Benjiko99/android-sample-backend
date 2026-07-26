@@ -48,10 +48,12 @@ module CommentsService
     CommentSerializer.call(comment, is_liked: false, is_following_author: false)
   end
 
-  def toggle_like(comment_id, viewer_id)
+  # PUT /posts/:id/comments/:comment_id/like — body: { "liked": true|false }, idempotent
+  # for the same reason PostsService#set_like is.
+  def set_like(comment_id, viewer_id, liked:)
     comment = Comment.find_by(id: comment_id)
     raise ApiError::NotFound, "Comment '#{comment_id}' was not found" if comment.nil?
 
-    LikeToggle.call(comment, join_model: CommentLike, viewer_id: viewer_id, foreign_key: :comment_id)
+    LikeState.set(comment, join_model: CommentLike, viewer_id: viewer_id, foreign_key: :comment_id, liked: liked)
   end
 end

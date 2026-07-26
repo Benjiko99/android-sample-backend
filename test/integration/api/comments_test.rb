@@ -72,11 +72,26 @@ class Api::CommentsTest < ActionDispatch::IntegrationTest
     assert_equal "VALIDATION_ERROR", response.parsed_body["error"]["code"]
   end
 
-  test "toggles a comment like and adjusts the counter" do
-    post "/api/posts/p6/comments/c1p6/like", headers: headers
+  test "sets a comment like on and off and adjusts the counter" do
+    put "/api/posts/p6/comments/c1p6/like", params: { liked: true }, as: :json, headers: headers
     assert_equal({ "isLiked" => true, "likeCount" => 12 }, response.parsed_body["data"])
-    post "/api/posts/p6/comments/c1p6/like", headers: headers
+    put "/api/posts/p6/comments/c1p6/like", params: { liked: false }, as: :json, headers: headers
     assert_equal({ "isLiked" => false, "likeCount" => 11 }, response.parsed_body["data"])
+  end
+
+  # Comment likes share LikeState with post likes, so they are idempotent for the same reason.
+  test "liking a comment twice is a no-op the second time" do
+    put "/api/posts/p6/comments/c1p6/like", params: { liked: true }, as: :json, headers: headers
+
+    assert_no_difference -> { CommentLike.count } do
+      put "/api/posts/p6/comments/c1p6/like", params: { liked: true }, as: :json, headers: headers
+    end
+    assert_equal({ "isLiked" => true, "likeCount" => 12 }, response.parsed_body["data"])
+  end
+
+  test "a comment like without a state is refused" do
+    put "/api/posts/p6/comments/c1p6/like", params: {}, as: :json, headers: headers
+    assert_response :unprocessable_entity
   end
 
   private

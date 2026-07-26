@@ -42,6 +42,23 @@ module Api
       render json: body
     end
 
+    # Reads a required boolean body param, raising a 422 with the standard details
+    # shape when it is missing or is anything other than a JSON true/false.
+    #
+    # Strict on purpose: the state-setting endpoints are only idempotent while the
+    # state they are given is unambiguous, and a client sending "true" or 1 has a bug
+    # worth hearing about rather than a value worth guessing at.
+    def boolean_param!(param)
+      value = params[param]
+      return value if [true, false].include?(value)
+
+      raise ApiError::Validation.for(
+        path: param.to_s,
+        code: "invalid_type",
+        message: "Expected true or false"
+      )
+    end
+
     # Validates an optional enum query param, returning the value (or nil when
     # absent) and raising a 422 with the standard details shape otherwise.
     def validate_enum!(value, param:, allowed:)

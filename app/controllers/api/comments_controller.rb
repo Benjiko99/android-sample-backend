@@ -14,9 +14,9 @@ module Api
       render_created(CommentsService.create(params[:post_id], current_user_id, comment_text))
     end
 
-    # POST /api/posts/:post_id/comments/:id/like
-    def toggle_like
-      render_data(CommentsService.toggle_like(params[:id], current_user_id))
+    # PUT /api/posts/:post_id/comments/:id/like — body: { "liked": true|false }
+    def set_like
+      render_data(CommentsService.set_like(params[:id], current_user_id, liked: boolean_param!(:liked)))
     end
 
     private

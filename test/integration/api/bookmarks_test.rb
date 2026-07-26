@@ -43,12 +43,12 @@ class Api::BookmarksTest < ActionDispatch::IntegrationTest
   end
 
   test "bookmarking a post adds it to the list and unbookmarking removes it" do
-    post "/api/posts/p3/bookmark", headers: headers("u1")
+    put "/api/posts/p3/bookmark", params: { bookmarked: true }, as: :json, headers: headers("u1")
 
     get "/api/users/u1/bookmarks", headers: headers("u1")
     assert_equal %w[p2 p3 p4], response.parsed_body["data"].map { |p| p["id"] }
 
-    post "/api/posts/p3/bookmark", headers: headers("u1")
+    put "/api/posts/p3/bookmark", params: { bookmarked: false }, as: :json, headers: headers("u1")
 
     get "/api/users/u1/bookmarks", headers: headers("u1")
     assert_equal %w[p2 p4], response.parsed_body["data"].map { |p| p["id"] }

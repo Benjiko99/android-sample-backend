@@ -330,7 +330,7 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
   end
 
   test "deleting a post takes its comments, likes and bookmarks with it" do
-    post "/api/posts/p1/bookmark", headers: headers
+    put "/api/posts/p1/bookmark", params: { bookmarked: true }, as: :json, headers: headers
     assert_operator Comment.where(post_id: "p1").count, :>, 0
     assert_operator PostLike.where(post_id: "p1").count, :>, 0
 
@@ -377,29 +377,83 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
 
   test "an author can like their own post" do
     assert_difference -> { PostLike.count } => 1 do
-      post "/api/posts/p1/like", headers: headers("u1") # u1 authored p1
+      put "/api/posts/p1/like", params: { liked: true }, as: :json, headers: headers("u1") # u1 authored p1
     end
     assert_response :ok
     assert_equal({ "isLiked" => true, "likeCount" => 129 }, response.parsed_body["data"])
 
-    post "/api/posts/p1/like", headers: headers("u1")
+    put "/api/posts/p1/like", params: { liked: false }, as: :json, headers: headers("u1")
     assert_equal({ "isLiked" => false, "likeCount" => 128 }, response.parsed_body["data"])
   end
 
-  test "like toggles on and off and adjusts the counter" do
-    post "/api/posts/p2/like", headers: headers
+  test "like goes on and off and adjusts the counter" do
+    put "/api/posts/p2/like", params: { liked: true }, as: :json, headers: headers
     assert_response :ok
     assert_equal({ "isLiked" => true, "likeCount" => 343 }, response.parsed_body["data"])
 
-    post "/api/posts/p2/like", headers: headers
+    put "/api/posts/p2/like", params: { liked: false }, as: :json, headers: headers
     assert_equal({ "isLiked" => false, "likeCount" => 342 }, response.parsed_body["data"])
   end
 
-  test "bookmark toggles on and off" do
-    post "/api/posts/p3/bookmark", headers: headers
+  # The whole point of setting a state rather than flipping one: a client that retries a
+  # request it never saw the answer to, or fires a second tap before the first lands, must
+  # not move the like twice.
+  test "liking a post twice is a no-op the second time" do
+    put "/api/posts/p2/like", params: { liked: true }, as: :json, headers: headers
+    assert_equal({ "isLiked" => true, "likeCount" => 343 }, response.parsed_body["data"])
+
+    assert_no_difference -> { PostLike.count } do
+      put "/api/posts/p2/like", params: { liked: true }, as: :json, headers: headers
+    end
+    assert_equal({ "isLiked" => true, "likeCount" => 343 }, response.parsed_body["data"])
+  end
+
+  test "unliking a post that was never liked is a no-op" do
+    assert_no_difference -> { PostLike.count } do
+      put "/api/posts/p2/like", params: { liked: false }, as: :json, headers: headers
+    end
+    assert_response :ok
+    assert_equal({ "isLiked" => false, "likeCount" => 342 }, response.parsed_body["data"])
+  end
+
+  test "bookmark goes on and off" do
+    put "/api/posts/p3/bookmark", params: { bookmarked: true }, as: :json, headers: headers
     assert_equal({ "isBookmarked" => true }, response.parsed_body["data"])
-    post "/api/posts/p3/bookmark", headers: headers
+    put "/api/posts/p3/bookmark", params: { bookmarked: false }, as: :json, headers: headers
     assert_equal({ "isBookmarked" => false }, response.parsed_body["data"])
+  end
+
+  test "bookmarking a post twice is a no-op the second time" do
+    put "/api/posts/p3/bookmark", params: { bookmarked: true }, as: :json, headers: headers
+
+    assert_no_difference -> { PostBookmark.count } do
+      put "/api/posts/p3/bookmark", params: { bookmarked: true }, as: :json, headers: headers
+    end
+    assert_equal({ "isBookmarked" => true }, response.parsed_body["data"])
+  end
+
+  # Idempotency only holds while the state asked for is unambiguous, so anything that is
+  # not a JSON boolean is refused rather than guessed at.
+  test "a like without a state is refused" do
+    put "/api/posts/p2/like", params: {}, as: :json, headers: headers
+    assert_response :unprocessable_entity
+    assert_equal "liked", response.parsed_body["error"]["details"].first["path"]
+  end
+
+  test "a like with a non-boolean state is refused" do
+    put "/api/posts/p2/like", params: { liked: "true" }, as: :json, headers: headers
+    assert_response :unprocessable_entity
+  end
+
+  test "a bookmark without a state is refused" do
+    put "/api/posts/p3/bookmark", params: {}, as: :json, headers: headers
+    assert_response :unprocessable_entity
+    assert_equal "bookmarked", response.parsed_body["error"]["details"].first["path"]
+  end
+
+  test "PUT /api/posts/:id/like 404s for a missing post" do
+    put "/api/posts/nope/like", params: { liked: true }, as: :json, headers: headers
+    assert_response :not_found
   end
 
   # Reporting is accepted and checked, then dropped: there is no moderation queue behind

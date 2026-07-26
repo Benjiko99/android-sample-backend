@@ -21,12 +21,14 @@ module Api
       head :no_content
     end
 
-    def toggle_like
-      render_data(PostsService.toggle_like(params[:id], current_user_id))
+    def set_like
+      render_data(PostsService.set_like(params[:id], current_user_id, liked: boolean_param!(:liked)))
     end
 
-    def toggle_bookmark
-      render_data(PostsService.toggle_bookmark(params[:id], current_user_id))
+    def set_bookmark
+      render_data(
+        PostsService.set_bookmark(params[:id], current_user_id, bookmarked: boolean_param!(:bookmarked))
+      )
     end
 
     # POST /api/posts/:id/report — body: { "reason": "spam", "details"?: "..." }. Nothing is

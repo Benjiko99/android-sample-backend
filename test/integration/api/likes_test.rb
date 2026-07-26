@@ -44,12 +44,12 @@ class Api::LikesTest < ActionDispatch::IntegrationTest
   end
 
   test "liking a post adds it to the list and unliking removes it" do
-    post "/api/posts/p2/like", headers: headers("u1")
+    put "/api/posts/p2/like", params: { liked: true }, as: :json, headers: headers("u1")
 
     get "/api/users/u1/likes", headers: headers("u1")
     assert_equal %w[p2 p3 p4], response.parsed_body["data"].map { |p| p["id"] }
 
-    post "/api/posts/p2/like", headers: headers("u1")
+    put "/api/posts/p2/like", params: { liked: false }, as: :json, headers: headers("u1")
 
     get "/api/users/u1/likes", headers: headers("u1")
     assert_equal %w[p3 p4], response.parsed_body["data"].map { |p| p["id"] }
@@ -57,7 +57,7 @@ class Api::LikesTest < ActionDispatch::IntegrationTest
 
   # A like is not restricted to other people's posts, so your own can appear in your Likes.
   test "a user's own liked post appears among their likes" do
-    post "/api/posts/p1/like", headers: headers("u1") # u1 authored p1
+    put "/api/posts/p1/like", params: { liked: true }, as: :json, headers: headers("u1") # u1 authored p1
 
     get "/api/users/u1/likes", headers: headers("u1")
     assert_includes response.parsed_body["data"].map { |p| p["id"] }, "p1"
