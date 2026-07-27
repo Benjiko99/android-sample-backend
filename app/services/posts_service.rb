@@ -96,13 +96,6 @@ module PostsService
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
-  # GET /users/:id/bookmarks — the profile's Saved tab. What a user saved is private,
-  # so the only readable list is the caller's own; anyone else is refused before the
-  # lookup, which also keeps an unknown id from distinguishing itself from a real one.
-  #
-  # The page is ordered by the *posts'* recency rather than when each was saved:
-  # post_bookmarks carries no timestamp of its own, and reusing the shared (created_at, id)
-  # keyset is worth more here than save-order would be.
   # GET /users/:id/likes — the profile's Likes tab. Public, unlike the Saved tab: what
   # someone endorsed is on show, so any caller may read anyone's. The viewer flags on the
   # items are still the *caller's* own, which is why viewer_id stays separate from user_id.
@@ -111,6 +104,13 @@ module PostsService
     paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
   end
 
+  # GET /users/:id/bookmarks — the profile's Saved tab. What a user saved is private,
+  # so the only readable list is the caller's own; anyone else is refused before the
+  # lookup, which also keeps an unknown id from distinguishing itself from a real one.
+  #
+  # The page is ordered by the *posts'* recency rather than when each was saved:
+  # post_bookmarks carries no timestamp of its own, and reusing the shared (created_at, id)
+  # keyset is worth more here than save-order would be.
   def list_bookmarked(user_id, viewer_id, cursor_token:, limit_param:)
     raise ApiError::Forbidden, "Bookmarks can only be read by the user who saved them" unless user_id == viewer_id
 
@@ -201,7 +201,7 @@ module PostsService
   end
 
   # Shared: user projections for the distinct authors on a page of feed items.
-  # The feed offers these behind `include=author`; the bookmarks list always sends them.
+  # The feed offers these behind `include=author`; the three profile lists always send them.
   def author_included(page, viewer_id)
     author_ids = page.items.map { |item| item["authorId"] }.uniq
     users = author_ids.empty? ? [] : User.where(id: author_ids).with_attached_avatar

@@ -44,7 +44,10 @@ module Api
       head :no_content
     end
 
-    # GET /api/users/:id/posts
+    # GET /api/users/:id/posts — the profile's Posts tab. Every post here is the profile's
+    # own, so the one sideloaded author is always the same user; it rides along anyway, so
+    # that all three profile lists answer in one shape and a client can render a page from
+    # the page alone.
     def by_user
       page = PostsService.list_by_user(
         params[:id],
@@ -52,12 +55,11 @@ module Api
         cursor_token: params[:cursor],
         limit_param: params[:limit]
       )
-      render_cursor(page)
+      render_cursor(page, included: PostsService.author_included(page, current_user_id))
     end
 
     # GET /api/users/:id/likes — the profile's Likes tab. Public: anyone may read anyone's,
-    # which is the whole difference from #bookmarked below. Authors ride along for the same
-    # reason they do there — a liked post can be by anyone.
+    # which is the whole difference from #bookmarked below.
     def liked
       page = PostsService.list_liked(
         params[:id],
@@ -69,9 +71,7 @@ module Api
     end
 
     # GET /api/users/:id/bookmarks — the profile's Saved tab. Bookmarks are private,
-    # so this only ever answers for the caller's own id (403 otherwise). Their authors
-    # are arbitrary users, so — unlike #by_user, where every post is the profile's own —
-    # the author projections always ride along.
+    # so this only ever answers for the caller's own id (403 otherwise).
     def bookmarked
       page = PostsService.list_bookmarked(
         params[:id],

@@ -519,4 +519,33 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_equal %w[p1 p6], response.parsed_body["data"].map { |p| p["id"] }
   end
+
+  # The Posts tab answers in the same shape as Saved and Likes, so a client can render any of
+  # the three from the page alone. Here the sideload is only ever the profile's own user.
+  test "GET /api/users/:id/posts always includes the author of the page" do
+    get "/api/users/u1/posts", headers: headers("u2")
+    included = response.parsed_body["included"]
+
+    assert_equal %w[u1], included["users"].map { |u| u["id"] }
+    assert_equal USER_KEYS, included["users"].first.keys.sort
+  end
+
+  # The flags on the sideloaded author are the *caller's*, the way the items' are.
+  test "GET /api/users/:id/posts sideloads the author with the caller's follow state" do
+    post "/api/users/u1/follow", headers: headers("u2")
+
+    get "/api/users/u1/posts", headers: headers("u2")
+    assert_equal true, response.parsed_body["included"]["users"].first["isFollowing"]
+
+    get "/api/users/u1/posts", headers: headers("u3")
+    assert_equal false, response.parsed_body["included"]["users"].first["isFollowing"]
+  end
+
+  # An empty page still carries the key, so a client parses one shape either way.
+  test "GET /api/users/:id/posts includes an empty author list when there are no posts" do
+    get "/api/users/nope/posts", headers: headers
+    assert_response :ok
+    assert_equal [], response.parsed_body["data"]
+    assert_equal [], response.parsed_body["included"]["users"]
+  end
 end
