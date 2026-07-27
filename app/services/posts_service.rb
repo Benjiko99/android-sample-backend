@@ -18,27 +18,27 @@ module PostsService
 
   module_function
 
-  # GET /posts/:id — full post with embedded author.
+  # GET /posts/:id — the post, plus the one user it names as its author. Returns
+  # [item, included] the way FeedService.list does, leaving the envelope to the controller.
   def get_by_id(id, viewer_id)
-    post = Post.includes(MEDIA_INCLUDES.merge(author: { avatar_attachment: :blob })).find_by(id: id)
+    post = Post.includes(MEDIA_INCLUDES).find_by(id: id)
     raise ApiError::NotFound, "Post '#{id}' was not found" if post.nil?
 
     liked = ViewerFlags.liked_post_ids(viewer_id, [ post.id ])
     bookmarked = ViewerFlags.bookmarked_post_ids(viewer_id, [ post.id ])
-    following_author = ViewerFlags.following_user_ids(viewer_id, [ post.author_id ])
 
-    PostSerializer.full(
+    item = PostSerializer.call(
       post,
       is_liked: liked.include?(post.id),
       is_bookmarked: bookmarked.include?(post.id),
-      is_following_author: following_author.include?(post.author_id),
       comment_count: post.comments.count
     )
+    [ item, author_included([ item ], viewer_id) ]
   end
 
-  # POST /posts — publishes a post authored by the viewer. Media is optional and
-  # exclusive: `images` become an Album, `video` becomes a Video, and sending both
-  # is rejected.
+  # POST /posts — publishes a post authored by the viewer, answering [item, included] the
+  # way #get_by_id does. Media is optional and exclusive: `images` become an Album, `video`
+  # becomes a Video, and sending both is rejected.
   def create(author_id, title, body, images: [], video: nil)
     author = User.find_by(id: author_id)
     raise ApiError::NotFound, "User '#{author_id}' was not found" if author.nil?
@@ -56,16 +56,15 @@ module PostsService
       post.save!
     end
 
-    # A freshly created post is never liked or bookmarked by, nor is its author followed
-    # by, the viewer — the viewer *is* the author — and nobody has commented on a post
-    # that did not exist a moment ago.
-    PostSerializer.full(
+    # A freshly created post is never liked or bookmarked by the viewer — the viewer *is*
+    # the author — and nobody has commented on a post that did not exist a moment ago.
+    item = PostSerializer.call(
       post,
       is_liked: false,
       is_bookmarked: false,
-      is_following_author: false,
       comment_count: 0
     )
+    [ item, author_included([ item ], author_id) ]
   end
 
   # DELETE /posts/:id — removes the viewer's own post. Only the author may delete;
@@ -90,10 +89,10 @@ module PostsService
     end
   end
 
-  # GET /users/:id/posts — the profile's Posts tab, keyset-paginated feed items.
+  # GET /users/:id/posts — the profile's Posts tab, keyset-paginated.
   def list_by_user(author_id, viewer_id, cursor_token:, limit_param:)
     relation = Post.includes(MEDIA_INCLUDES).where(author_id: author_id)
-    paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
+    paginate_posts(relation, viewer_id, cursor_token:, limit_param:)
   end
 
   # GET /users/:id/likes — the profile's Likes tab. Public, unlike the Saved tab: what
@@ -101,7 +100,7 @@ module PostsService
   # items are still the *caller's* own, which is why viewer_id stays separate from user_id.
   def list_liked(user_id, viewer_id, cursor_token:, limit_param:)
     relation = Post.includes(MEDIA_INCLUDES).joins(:post_likes).where(post_likes: { user_id: user_id })
-    paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
+    paginate_posts(relation, viewer_id, cursor_token:, limit_param:)
   end
 
   # GET /users/:id/bookmarks — the profile's Saved tab. What a user saved is private,
@@ -115,7 +114,7 @@ module PostsService
     raise ApiError::Forbidden, "Bookmarks can only be read by the user who saved them" unless user_id == viewer_id
 
     relation = Post.includes(MEDIA_INCLUDES).joins(:post_bookmarks).where(post_bookmarks: { user_id: user_id })
-    paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
+    paginate_posts(relation, viewer_id, cursor_token:, limit_param:)
   end
 
   # PUT /posts/:id/like — body: { "liked": true|false }. The request names the state it
@@ -181,8 +180,8 @@ module PostsService
     )
   end
 
-  # Shared: paginate a post relation and serialize as feed items with viewer flags.
-  def paginate_feed_items(relation, viewer_id, cursor_token:, limit_param:)
+  # Shared: paginate a post relation and serialize its rows with viewer flags.
+  def paginate_posts(relation, viewer_id, cursor_token:, limit_param:)
     page = Cursor.paginate(relation, cursor_token:, limit_param:)
     ids = page.items.map(&:id)
     liked = ViewerFlags.liked_post_ids(viewer_id, ids)
@@ -190,7 +189,7 @@ module PostsService
     comment_counts = CommentsService.counts_by_post(ids)
 
     items = page.items.map do |post|
-      PostSerializer.feed_item(
+      PostSerializer.call(
         post,
         is_liked: liked.include?(post.id),
         is_bookmarked: bookmarked.include?(post.id),
@@ -200,10 +199,12 @@ module PostsService
     Cursor::Page.new(items, page.page)
   end
 
-  # Shared: user projections for the distinct authors on a page of feed items.
-  # The feed offers these behind `include=author`; the three profile lists always send them.
-  def author_included(page, viewer_id)
-    author_ids = page.items.map { |item| item["authorId"] }.uniq
+  # Shared: user projections for the distinct authors of `items` — a whole page of them, or
+  # the single item #get_by_id and #create answer with. Takes the serialized items rather
+  # than the posts, so the one thing it reads is the "authorId" the client will resolve.
+  # The feed offers these behind `include=author`; every other post endpoint always sends them.
+  def author_included(items, viewer_id)
+    author_ids = items.map { |item| item["authorId"] }.uniq
     users = author_ids.empty? ? [] : User.where(id: author_ids).with_attached_avatar
     following = ViewerFlags.following_user_ids(viewer_id, author_ids)
 

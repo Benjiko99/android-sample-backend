@@ -1,19 +1,23 @@
 module Api
   class PostsController < BaseController
+    # GET /api/posts/:id — the post, with its author sideloaded beside it rather than
+    # embedded in it. A single post answers in the shape a page of them does, so a client
+    # has one post projection to read instead of two that differ only there.
     def show
-      render_data(PostsService.get_by_id(params[:id], current_user_id))
+      post, included = PostsService.get_by_id(params[:id], current_user_id)
+      render_data(post, included: included)
     end
 
+    # POST /api/posts — answers with the published post, sideloaded the way #show is.
     def create
-      render_created(
-        PostsService.create(
-          current_user_id,
-          trimmed(:title),
-          trimmed(:body),
-          images: uploaded_images,
-          video: uploaded_video
-        )
+      post, included = PostsService.create(
+        current_user_id,
+        trimmed(:title),
+        trimmed(:body),
+        images: uploaded_images,
+        video: uploaded_video
       )
+      render_created(post, included: included)
     end
 
     def destroy
@@ -55,7 +59,7 @@ module Api
         cursor_token: params[:cursor],
         limit_param: params[:limit]
       )
-      render_cursor(page, included: PostsService.author_included(page, current_user_id))
+      render_cursor(page, included: PostsService.author_included(page.items, current_user_id))
     end
 
     # GET /api/users/:id/likes — the profile's Likes tab. Public: anyone may read anyone's,
@@ -67,7 +71,7 @@ module Api
         cursor_token: params[:cursor],
         limit_param: params[:limit]
       )
-      render_cursor(page, included: PostsService.author_included(page, current_user_id))
+      render_cursor(page, included: PostsService.author_included(page.items, current_user_id))
     end
 
     # GET /api/users/:id/bookmarks — the profile's Saved tab. Bookmarks are private,
@@ -79,7 +83,7 @@ module Api
         cursor_token: params[:cursor],
         limit_param: params[:limit]
       )
-      render_cursor(page, included: PostsService.author_included(page, current_user_id))
+      render_cursor(page, included: PostsService.author_included(page.items, current_user_id))
     end
 
     private

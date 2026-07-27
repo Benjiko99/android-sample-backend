@@ -1,6 +1,8 @@
-# Mirrors post.schema.ts.
-#   full      -> toPostDTO       (GET /posts/:id) — embeds the full author
-#   feed_item -> toPostFeedItemDTO (/feed, /users/:id/posts) — authorId reference
+# Mirrors post.schema.ts. There is one post projection, deliberately: a post names its author
+# with "authorId" and never embeds the user. The endpoints answering with a *single* post
+# sideload that author under "included" the way a page of posts does, so a client reads one
+# shape everywhere rather than telling two apart — the same argument UserSerializer makes for
+# there being one user projection.
 #
 # is_liked / is_bookmarked are viewer-scoped booleans computed by the caller.
 #
@@ -12,25 +14,14 @@
 module PostSerializer
   module_function
 
-  def full(post, is_liked:, is_bookmarked:, is_following_author:, comment_count:)
-    base(post, is_liked:, is_bookmarked:, comment_count:).merge(
-      "author" => UserSerializer.serialize(post.author, is_following: is_following_author)
-    )
-  end
-
-  def feed_item(post, is_liked:, is_bookmarked:, comment_count:)
-    base(post, is_liked:, is_bookmarked:, comment_count:).merge(
-      "authorId" => post.author_id
-    )
-  end
-
-  def base(post, is_liked:, is_bookmarked:, comment_count:)
+  def call(post, is_liked:, is_bookmarked:, comment_count:)
     {
       "id" => post.id,
       "url" => url(post),
       "title" => post.title,
       "body" => post.body,
       "createdAt" => post.created_at.iso8601,
+      "authorId" => post.author_id,
       "likeCount" => post.like_count,
       "commentCount" => comment_count,
       "isLiked" => is_liked,

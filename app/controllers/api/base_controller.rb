@@ -3,8 +3,8 @@ module Api
   # error-mapping point (mirrors lib/http.ts + the `route` wrapper).
   #
   # Success shapes:
-  #   { "data": ... }                    single resource
-  #   { "data": [...], "page": ... }     cursor-paginated collection
+  #   { "data": ..., "included"? }                 single resource
+  #   { "data": [...], "page": ..., "included"? }  cursor-paginated collection
   # Error shape:
   #   { "error": { "code", "message", "details"? } }
   class BaseController < ActionController::API
@@ -27,13 +27,18 @@ module Api
     end
 
     # ── Envelopes ────────────────────────────────────────────────────────────
-    def render_data(data, status: :ok, headers: {})
+    # `included` carries the resources the payload references rather than embeds — the
+    # author of a post, say. Omitted entirely when there are none, so an endpoint that
+    # sideloads nothing answers exactly the shape it always did.
+    def render_data(data, status: :ok, included: nil, headers: {})
       headers.each { |k, v| response.set_header(k, v) }
-      render json: { "data" => data }, status: status
+      body = { "data" => data }
+      body["included"] = included unless included.nil?
+      render json: body, status: status
     end
 
-    def render_created(data)
-      render json: { "data" => data }, status: :created
+    def render_created(data, included: nil)
+      render_data(data, status: :created, included: included)
     end
 
     def render_cursor(page, included: nil)

@@ -5,12 +5,12 @@ module FeedService
 
   # include: "author" attaches user projections for the page's authors.
   def list(viewer_id, cursor_token:, limit_param:, include: nil)
-    page = PostsService.paginate_feed_items(
+    page = PostsService.paginate_posts(
       Post.includes(PostsService::MEDIA_INCLUDES),
       viewer_id,
       cursor_token:,
       limit_param:
     )
-    [ page, include == "author" ? PostsService.author_included(page, viewer_id) : nil ]
+    [ page, include == "author" ? PostsService.author_included(page.items, viewer_id) : nil ]
   end
 end

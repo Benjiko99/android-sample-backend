@@ -21,16 +21,45 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
     assert_equal 360, video.thumbnail_height
   end
 
-  test "GET /api/posts/:id returns a full post with embedded author" do
+  test "GET /api/posts/:id returns the post with its author sideloaded" do
     get "/api/posts/p1", headers: headers
     assert_response :ok
     post = response.parsed_body["data"]
 
     assert_equal "p1", post["id"]
-    assert_equal "u1", post["author"]["id"]
+    assert_equal "u1", post["authorId"]
+    assert_not post.key?("author"), "a post references its author, it does not embed one"
     assert_equal "Engine sketches", post["album"]["title"]
     assert_equal 3, post["album"]["images"].length
     assert_equal false, post["isLiked"], "u1 authored p1, so u1 cannot have liked it"
+
+    included = response.parsed_body["included"]
+    assert_equal %w[u1], included["users"].map { |u| u["id"] }
+    assert_equal USER_KEYS, included["users"].first.keys.sort
+  end
+
+  # The whole point of the sideload: a single post answers in the shape a page of them does,
+  # so a client has one post projection to read rather than two that differ only in how the
+  # author arrives.
+  test "GET /api/posts/:id serves the same post projection the feed does" do
+    get "/api/posts/p1", headers: headers
+    detail = response.parsed_body["data"]
+
+    get "/api/feed", headers: headers
+    feed_item = response.parsed_body["data"].find { |p| p["id"] == "p1" }
+
+    assert_equal feed_item, detail
+  end
+
+  # The flags on the sideloaded author are the *caller's*, the way the item's own are.
+  test "GET /api/posts/:id sideloads the author with the caller's follow state" do
+    post "/api/users/u1/follow", headers: headers("u2")
+
+    get "/api/posts/p1", headers: headers("u2")
+    assert_equal true, response.parsed_body["included"]["users"].first["isFollowing"]
+
+    get "/api/posts/p1", headers: headers("u3")
+    assert_equal false, response.parsed_body["included"]["users"].first["isFollowing"]
   end
 
   test "every projection carries the post's shareable url" do
@@ -64,13 +93,25 @@ class Api::PostsTest < ActionDispatch::IntegrationTest
 
     assert_equal "Hello", created["title"]
     assert_equal "World", created["body"]
-    assert_equal "u2", created["author"]["id"]
+    assert_equal "u2", created["authorId"]
     assert_equal 0, created["likeCount"]
     assert_equal 0, created["commentCount"]
     assert_equal false, created["isLiked"]
     assert_equal false, created["isBookmarked"]
     assert_nil created["album"]
     assert_nil created["video"]
+  end
+
+  # The composer has just published this post, so it holds the author already — but it is sent
+  # anyway, because #create answers in the same shape #show does and a client parses one of them.
+  test "POST /api/posts sideloads the author of the post it created" do
+    post "/api/posts", params: { title: "Hello", body: "World" }, as: :json, headers: headers("u2")
+    assert_response :created
+
+    included = response.parsed_body["included"]
+    assert_equal %w[u2], included["users"].map { |u| u["id"] }
+    assert_equal USER_KEYS, included["users"].first.keys.sort
+    assert_equal false, included["users"].first["isFollowing"], "nobody follows themselves"
   end
 
   test "a created post appears at the top of the feed and on its author's profile" do
