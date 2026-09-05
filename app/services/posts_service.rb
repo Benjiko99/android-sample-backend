@@ -244,14 +244,12 @@ module PostsService
   end
 
   # The poster frame for a clip, taken from its midpoint, or nil when none could be
-  # produced (no ffmpeg, an unreadable stream, an unknown resolution).
+  # produced (no ffmpeg, an unreadable stream). Only the midpoint is taken from the
+  # metadata: the frame's size is ffmpeg's to settle, because the resolution read
+  # here is the one *stored* in the container, which a rotated clip does not display
+  # at. See VideoThumbnail::SCALE_FILTER.
   def extract_thumbnail(file, metadata)
-    VideoThumbnail.generate(
-      file,
-      width: metadata.width,
-      height: metadata.height,
-      at_seconds: metadata.duration_seconds / 2.0
-    )
+    VideoThumbnail.generate(file, at_seconds: metadata.duration_seconds / 2.0)
   end
 
   # Attaches an already-extracted poster frame and records its dimensions. A
