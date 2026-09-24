@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_26_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_09_24_120000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -110,6 +110,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_26_120000) do
     t.string "bio"
     t.integer "follower_count", default: 0, null: false
     t.integer "following_count", default: 0, null: false
+    t.boolean "online", default: false, null: false
     t.index [ "handle" ], name: "index_users_on_handle", unique: true
   end
 

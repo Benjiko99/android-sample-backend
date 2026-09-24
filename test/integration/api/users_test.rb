@@ -8,16 +8,27 @@ class Api::UsersTest < ActionDispatch::IntegrationTest
     assert_response :ok
     user = response.parsed_body["data"]
     assert_equal "Grace Hopper", user["nickname"]
-    assert_equal(
-      %w[id nickname handle age gender location bio avatarUrl followerCount followingCount isFollowing].sort,
-      user.keys.sort
-    )
+    assert_equal USER_KEYS, user.keys.sort
     assert_equal false, user["isFollowing"]
     # Rails normalizes Cache-Control and adds a scope token (private); the
     # meaningful directives from the source are preserved.
     cache_control = response.headers["Cache-Control"]
     assert_match(/max-age=60/, cache_control)
     assert_match(/stale-while-revalidate=300/, cache_control)
+  end
+
+  test "GET /api/users/:id reports only the signed-in sample user as online" do
+    get "/api/users/u1", headers: headers
+    assert_equal true, response.parsed_body["data"]["isOnline"]
+
+    get "/api/users/u2", headers: headers
+    assert_equal false, response.parsed_body["data"]["isOnline"]
+  end
+
+  test "PATCH ignores isOnline, which is not editable" do
+    patch "/api/users/u2", params: { online: true, isOnline: true }, as: :json, headers: headers("u2")
+    assert_response :ok
+    assert_equal false, response.parsed_body["data"]["isOnline"]
   end
 
   test "GET /api/users/:id 404s for a missing user" do

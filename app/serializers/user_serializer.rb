@@ -18,7 +18,8 @@ module UserSerializer
       "avatarUrl" => avatar_url(user),
       "followerCount" => user.follower_count,
       "followingCount" => user.following_count,
-      "isFollowing" => is_following
+      "isFollowing" => is_following,
+      "isOnline" => user.online
     }
   end
 

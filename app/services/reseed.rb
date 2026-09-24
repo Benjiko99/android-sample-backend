@@ -72,7 +72,8 @@ module Reseed
       { id: "u1", nickname: "Ada Lovelace", handle: "@countess", age: 36, gender: "Woman",
         location: "London, England",
         bio: "Mathematician & writer. The Analytical Engine weaves algebra the way the loom weaves flowers. Poetical science, mostly.",
-        follower_count: 128_400, following_count: 212 },
+        # The client's signed-in user, and the only one there is, so the only one online.
+        follower_count: 128_400, following_count: 212, online: true },
       { id: "u2", nickname: "Grace Hopper", handle: "@amazinggrace", age: 85, gender: "Woman",
         location: "Arlington, Virginia",
         bio: "Rear Admiral. Compiler pioneer. It's easier to ask forgiveness than permission.",

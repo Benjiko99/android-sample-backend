@@ -20,7 +20,7 @@ class ActionDispatch::IntegrationTest
   # users assert against this.
   USER_KEYS = %w[
     id nickname handle age gender location bio avatarUrl
-    followerCount followingCount isFollowing
+    followerCount followingCount isFollowing isOnline
   ].sort.freeze
 
   # Default auth header for API requests; pass a different id per call as needed.
